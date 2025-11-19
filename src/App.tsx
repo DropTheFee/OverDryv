@@ -1,7 +1,8 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/layout/Layout';
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import CheckInPage from './pages/CheckInPage';
 import InvoiceDemo from './pages/InvoiceDemo';
@@ -13,6 +14,8 @@ function App() {
     <AuthProvider>
       <Layout>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/demo" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/check-in" element={<CheckInPage />} />
           <Route path="/invoice-demo" element={<InvoiceDemo />} />

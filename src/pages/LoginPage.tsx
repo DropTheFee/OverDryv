@@ -165,8 +165,8 @@ const LoginPage: React.FC = () => {
 
         <div className="text-center pt-4 border-t border-gray-200">
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800 font-medium">Demo Credentials:</p>
-            <p className="text-sm text-blue-700">Email: demo@overdryv.com</p>
+            <p className="text-sm text-blue-800 font-medium">Demo Credentials (Shop Owner View):</p>
+            <p className="text-sm text-blue-700">Email: demo@overdryv.io</p>
             <p className="text-sm text-blue-700">Password: Demo123!</p>
           </div>
           <Link to="/" className="text-gray-500 hover:text-gray-700 text-sm">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Wrench, User, LogOut, Home } from 'lucide-react';
+import { User, LogOut, Home } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const { user, profile, signOut } = useAuth();
@@ -16,7 +16,7 @@ const Navbar: React.FC = () => {
   React.useEffect(() => {
     if (user && profile) {
       const currentPath = window.location.pathname;
-      if (currentPath === '/login') {
+      if (currentPath === '/login' || currentPath === '/demo') {
         if (profile.role === 'customer') {
           navigate('/customer');
         } else if (profile.role === 'admin' || profile.role === 'technician') {
@@ -31,18 +31,18 @@ const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link to="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-            <div className="relative">
-              <Wrench className="w-8 h-8 text-accent-400 transform rotate-45" />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary-400 rounded-full"></div>
-            </div>
-            <span className="text-2xl font-bold tracking-tight">OverDryv</span>
+            <img 
+              src="/OverdryvLogov3.png" 
+              alt="OverDryv Logo" 
+              className="h-10 w-auto"
+            />
           </Link>
 
           <div className="flex items-center space-x-6">
             {!user ? (
               <>
-                <Link to="/pricing" className="hover:text-accent-300 transition-colors font-medium">
-                  Pricing
+                <Link to="/demo" className="hover:text-accent-300 transition-colors font-medium">
+                  Try Demo
                 </Link>
                 <Link to="/check-in" className="hover:text-orange-300 transition-colors font-medium">
                   Check In

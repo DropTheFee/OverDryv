@@ -29,45 +29,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const createDemoAccount = async () => {
-    try {
-      // Try to create demo account first
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: 'demo@overdryv.com',
-        password: 'Demo123!',
-      });
-      
-      if (signUpError && signUpError.message === 'User already registered') {
-        // Demo account exists, just sign out to allow normal login flow
-        try {
-          await supabase.auth.signOut();
-        } catch (signOutError) {
-          console.log('Sign out error (expected):', signOutError);
-        }
-      } else if (!signUpError && data.user) {
-        // Successfully created demo account, create profile
-        await supabase.from('profiles').insert({
-          id: data.user.id,
-          email: 'demo@overdryv.com',
-          first_name: 'Demo',
-          last_name: 'Admin',
-          role: 'admin',
-        });
-        
-        // Sign out after creating demo account
-        await supabase.auth.signOut();
-      }
-    } catch (error) {
-      console.log('Demo account setup failed:', error);
-    }
-  };
-
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      // Try to create demo account on first load
-      await createDemoAccount();
-      
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user || null);

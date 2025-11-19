@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Car, User, Wrench } from 'lucide-react';
+import { X, Car, User, Wrench, Plus } from 'lucide-react';
 import { vehicleService } from '../../services/vehicleService';
 import { workOrderService } from '../../services/workOrderService';
+import AddCustomerModal from './AddCustomerModal';
+import VehicleLookupModal from './VehicleLookupModal';
 
 interface CreateWorkOrderModalProps {
   isOpen: boolean;
@@ -18,6 +20,8 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [formData, setFormData] = useState({
     customer_id: '',
     vehicle_id: '',
@@ -149,9 +153,19 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Customer Selection */}
           <div>
-            <div className="flex items-center mb-3">
-              <User className="w-5 h-5 text-blue-600 mr-2" />
-              <h3 className="font-semibold text-gray-900">Customer</h3>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center">
+                <User className="w-5 h-5 text-blue-600 mr-2" />
+                <h3 className="font-semibold text-gray-900">Customer</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCustomer(true)}
+                className="flex items-center gap-2 px-4 py-2 text-base text-white bg-blue-600 hover:bg-blue-700 font-bold rounded-lg transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                New Customer
+              </button>
             </div>
             <select
               required
@@ -171,9 +185,19 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
           {/* Vehicle Selection */}
           {formData.customer_id && (
             <div>
-              <div className="flex items-center mb-3">
-                <Car className="w-5 h-5 text-blue-600 mr-2" />
-                <h3 className="font-semibold text-gray-900">Vehicle</h3>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <Car className="w-5 h-5 text-blue-600 mr-2" />
+                  <h3 className="font-semibold text-gray-900">Vehicle</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddVehicle(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-base text-white bg-green-600 hover:bg-green-700 font-bold rounded-lg transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  New Vehicle
+                </button>
               </div>
               <select
                 required
@@ -281,6 +305,29 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Add Customer Modal */}
+      <AddCustomerModal
+        isOpen={showAddCustomer}
+        onClose={() => setShowAddCustomer(false)}
+        onSuccess={(newCustomer) => {
+          setShowAddCustomer(false);
+          fetchCustomers(); // Refresh customer list
+          setFormData({ ...formData, customer_id: newCustomer.id }); // Auto-select new customer
+        }}
+      />
+
+      {/* Add Vehicle Modal */}
+      <VehicleLookupModal
+        isOpen={showAddVehicle}
+        onClose={() => setShowAddVehicle(false)}
+        customerId={formData.customer_id}
+        onVehicleSelect={(vehicle) => {
+          setShowAddVehicle(false);
+          fetchCustomerVehicles(formData.customer_id); // Refresh vehicle list
+          setFormData({ ...formData, vehicle_id: vehicle.id }); // Auto-select new vehicle
+        }}
+      />
     </div>
   );
 };
