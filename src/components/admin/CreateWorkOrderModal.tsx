@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Car, User, Wrench, Plus } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import { vehicleService } from '../../services/vehicleService';
 import { workOrderService } from '../../services/workOrderService';
 import AddCustomerModal from './AddCustomerModal';
@@ -56,22 +57,46 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
   }, [formData.customer_id]);
 
   const fetchCustomers = async () => {
-    // Mock data for demonstration
-    const mockCustomers = [
-      { id: 'cust1', first_name: 'John', last_name: 'Smith', email: 'john.smith@email.com' },
-      { id: 'cust2', first_name: 'Sarah', last_name: 'Davis', email: 'sarah.davis@email.com' },
-      { id: 'cust3', first_name: 'Mike', last_name: 'Chen', email: 'mike.chen@email.com' },
-    ];
-    setCustomers(mockCustomers);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email')
+        .eq('role', 'customer')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching customers:', error);
+        setCustomers([]);
+        return;
+      }
+      
+      // If no customers exist, show a helpful empty state but don't auto-create
+      setCustomers(data || []);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      setCustomers([]);
+    }
   };
 
   const fetchCustomerVehicles = async (customerId: string) => {
-    // Mock data for demonstration
-    const mockVehicles = [
-      { id: 'veh1', make: 'Toyota', model: 'Camry', year: 2022, license_plate: 'ABC-1234' },
-      { id: 'veh2', make: 'Honda', model: 'Civic', year: 2020, license_plate: 'XYZ-5678' },
-    ];
-    setVehicles(mockVehicles);
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching vehicles:', error);
+        setVehicles([]);
+        return;
+      }
+      
+      setVehicles(data || []);
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+      setVehicles([]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -173,7 +198,9 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
               onChange={(e) => setFormData({ ...formData, customer_id: e.target.value, vehicle_id: '' })}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">Select a customer</option>
+              <option value="">
+                {customers.length === 0 ? 'No customers yet - Click "New Customer" to add one' : 'Select a customer'}
+              </option>
               {customers.map(customer => (
                 <option key={customer.id} value={customer.id}>
                   {customer.first_name} {customer.last_name} - {customer.email}

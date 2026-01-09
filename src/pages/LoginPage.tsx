@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Wrench, Eye, EyeOff } from 'lucide-react';
@@ -16,19 +16,8 @@ const LoginPage: React.FC = () => {
     phone: '',
   });
 
-  const { signIn, signUp, user, profile } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-
-  // Redirect immediately when user logs in
-  useEffect(() => {
-    if (user && profile && !loading) {
-      if (profile.role === 'customer') {
-        navigate('/customer', { replace: true });
-      } else if (profile.role === 'admin' || profile.role === 'technician') {
-        navigate('/admin', { replace: true });
-      }
-    }
-  }, [user, profile, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +45,9 @@ const LoginPage: React.FC = () => {
           setLoading(false);
           return;
         }
-        // Keep loading true until redirect happens
+        
+        // Redirect immediately - dashboard will handle role-based routing
+        navigate('/admin', { replace: true });
       }
     } catch (error: any) {
       console.error('Auth error:', error);

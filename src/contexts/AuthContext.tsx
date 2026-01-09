@@ -93,10 +93,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    if (!error && data.user) {
+      // Fetch profile immediately so caller can redirect
+      await fetchProfile(data.user.id);
+    }
+    
     return { error };
   };
 
