@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Wrench, Eye, EyeOff } from 'lucide-react';
@@ -16,8 +16,19 @@ const LoginPage: React.FC = () => {
     phone: '',
   });
 
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user, profile } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect immediately when user logs in
+  useEffect(() => {
+    if (user && profile && !loading) {
+      if (profile.role === 'customer') {
+        navigate('/customer', { replace: true });
+      } else if (profile.role === 'admin' || profile.role === 'technician') {
+        navigate('/admin', { replace: true });
+      }
+    }
+  }, [user, profile, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,14 +53,14 @@ const LoginPage: React.FC = () => {
         if (error) {
           console.error('Sign in error:', error);
           setError(error.message || 'Invalid email or password');
+          setLoading(false);
           return;
         }
-        // Navigation will be handled by AuthContext
+        // Keep loading true until redirect happens
       }
     } catch (error: any) {
       console.error('Auth error:', error);
       setError(error.message || 'Authentication failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
