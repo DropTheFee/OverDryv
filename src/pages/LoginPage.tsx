@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Wrench, Eye, EyeOff } from 'lucide-react';
@@ -16,8 +16,20 @@ const LoginPage: React.FC = () => {
     phone: '',
   });
 
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, profile } = useAuth();
   const navigate = useNavigate();
+
+  // Auto-redirect after successful login when profile is loaded
+  useEffect(() => {
+    if (profile && !error && loading) {
+      setLoading(false);
+      if (profile.role === 'customer') {
+        navigate('/customer', { replace: true });
+      } else if (profile.role === 'admin' || profile.role === 'technician') {
+        navigate('/admin', { replace: true });
+      }
+    }
+  }, [profile, error, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,9 +46,10 @@ const LoginPage: React.FC = () => {
         if (error) {
           console.error('Sign up error:', error);
           setError(error.message || 'Failed to create account');
+          setLoading(false);
           return;
         }
-        navigate('/customer');
+        // Profile will be loaded and useEffect will handle navigation
       } else {
         const { error } = await signIn(formData.email, formData.password);
         if (error) {
@@ -45,9 +58,7 @@ const LoginPage: React.FC = () => {
           setLoading(false);
           return;
         }
-        
-        // Redirect immediately - dashboard will handle role-based routing
-        navigate('/admin', { replace: true });
+        // Profile will be loaded and useEffect will handle navigation
       }
     } catch (error: any) {
       console.error('Auth error:', error);

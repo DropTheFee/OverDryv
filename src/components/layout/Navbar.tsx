@@ -12,20 +12,6 @@ const Navbar: React.FC = () => {
     navigate('/');
   };
 
-  // Auto-navigate based on user role after login
-  React.useEffect(() => {
-    if (user && profile) {
-      const currentPath = window.location.pathname;
-      if (currentPath === '/login' || currentPath === '/demo') {
-        if (profile.role === 'customer') {
-          navigate('/customer');
-        } else if (profile.role === 'admin' || profile.role === 'technician') {
-          navigate('/admin');
-        }
-      }
-    }
-  }, [user, profile, navigate]);
-
   return (
     <nav className="bg-gradient-to-r from-secondary-900 to-secondary-800 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
