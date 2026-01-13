@@ -10,32 +10,9 @@
 -- STEP 1: CLEAN UP EXISTING DEMO DATA (keeps tables)
 -- =====================================================
 
--- Delete demo data (keeps table structure and auth users)
-DELETE FROM service_items WHERE estimate_id IS NOT NULL OR work_order_id IN (
-  SELECT id FROM work_orders WHERE customer_id IN (
-    SELECT id FROM profiles WHERE email LIKE '%@email.com' OR email = 'demo@overdryv.io'
-  )
-);
-
-DELETE FROM service_items WHERE work_order_id IN (
-  SELECT id FROM work_orders WHERE customer_id IN (
-    SELECT id FROM profiles WHERE email LIKE '%@email.com'
-  )
-);
-
-DELETE FROM estimates WHERE customer_id IN (
-  SELECT id FROM profiles WHERE email LIKE '%@email.com'
-);
-
-DELETE FROM work_orders WHERE customer_id IN (
-  SELECT id FROM profiles WHERE email LIKE '%@email.com'
-);
-
-DELETE FROM vehicles WHERE customer_id IN (
-  SELECT id FROM profiles WHERE email LIKE '%@email.com'
-);
-
-DELETE FROM profiles WHERE email LIKE '%@email.com';
+-- Delete ALL demo data to avoid duplicates
+TRUNCATE service_items, estimates, work_orders, vehicles CASCADE;
+DELETE FROM profiles WHERE role = 'customer' OR email LIKE '%@email.com';
 
 -- =====================================================
 -- STEP 2: UPDATE DEMO ADMIN USER PROFILE
