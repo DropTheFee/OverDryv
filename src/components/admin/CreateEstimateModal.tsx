@@ -29,7 +29,13 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
-  const [serviceItems, setServiceItems] = useState<ServiceItem[]>([]);
+  const [serviceItems, setServiceItems] = useState<ServiceItem[]>([{
+    id: crypto.randomUUID(),
+    description: '',
+    quantity: 1,
+    unit_price: 0,
+    item_type: 'labor',
+  }]);
   
   const [formData, setFormData] = useState({
     customer_id: '',
@@ -61,15 +67,6 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
     fetchCustomers();
     if (estimateToEdit) {
       loadEstimateData();
-    } else {
-      // Add initial empty service item
-      setServiceItems([{
-        id: crypto.randomUUID(),
-        description: '',
-        quantity: 1,
-        unit_price: 0,
-        item_type: 'labor',
-      }]);
     }
   }, []);
 
@@ -99,13 +96,13 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
       .eq('estimate_id', estimateToEdit.id);
     
     if (items && items.length > 0) {
-      setServiceItems(items.map(item => ({
+      setServiceItems(items.map((item: any) => ({
         id: item.id,
         description: item.description,
         quantity: item.quantity,
         unit_price: item.unit_price,
         item_type: item.item_type || 'labor',
-      })));
+      })) as ServiceItem[]);
     }
   };
 
@@ -196,8 +193,8 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
       
       if (estimateToEdit) {
         // Update existing estimate
-        const { error: updateError } = await supabase
-          .from('estimates')
+        const { error: updateError } = await (supabase
+          .from('estimates') as any)
           .update({
             customer_id: formData.customer_id,
             vehicle_id: formData.vehicle_id,
@@ -208,7 +205,7 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
             total_amount: subtotal,
             valid_until: formData.valid_until,
             updated_at: new Date().toISOString(),
-          } as any)
+          })
           .eq('id', estimateToEdit.id);
 
         if (updateError) throw updateError;
@@ -229,9 +226,9 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
           item_type: item.item_type,
         }));
 
-        const { error: itemsError } = await supabase
-          .from('service_items')
-          .insert(itemsToInsert as any);
+        const { error: itemsError } = await (supabase
+          .from('service_items') as any)
+          .insert(itemsToInsert);
 
         if (itemsError) throw itemsError;
 
@@ -239,8 +236,8 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
         // Create new estimate
         const estimateNumber = generateEstimateNumber();
         
-        const { data: estimate, error: estimateError } = await supabase
-          .from('estimates')
+        const { data: estimate, error: estimateError } = await (supabase
+          .from('estimates') as any)
           .insert({
             estimate_number: estimateNumber,
             customer_id: formData.customer_id,
@@ -252,11 +249,12 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
             notes: formData.notes,
             total_amount: subtotal,
             valid_until: formData.valid_until,
-          } as any)
+          })
           .select()
           .single();
 
         if (estimateError) throw estimateError;
+        if (!estimate) throw new Error('Failed to create estimate');
 
         // Insert service items
         const itemsToInsert = serviceItems.map(item => ({
@@ -268,9 +266,9 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
           item_type: item.item_type,
         }));
 
-        const { error: itemsError } = await supabase
-          .from('service_items')
-          .insert(itemsToInsert as any);
+        const { error: itemsError } = await (supabase
+          .from('service_items') as any)
+          .insert(itemsToInsert);
 
         if (itemsError) throw itemsError;
       }
@@ -467,82 +465,104 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  {serviceItems.map((item) => (
-                    <div key={item.id} className="bg-gray-50 rounded-lg p-4">
-                      <div className="grid grid-cols-12 gap-3">
-                        <div className="col-span-5">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Description
-                          </label>
-                          <input
-                            type="text"
-                            value={item.description}
-                            onChange={(e) => updateServiceItem(item.id, 'description', e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                            placeholder="Service or part description..."
-                          />
+                  {serviceItems.map((item) => {
+                    const cashLineTotal = item.quantity * item.unit_price;
+                    const cardLineTotal = cashLineTotal * 1.035;
+                    const cardUnitPrice = item.unit_price * 1.035;
+                    
+                    return (
+                      <div key={item.id} className="bg-gray-50 rounded-lg p-4">
+                        <div className="grid grid-cols-12 gap-3">
+                          <div className="col-span-4">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Description
+                            </label>
+                            <input
+                              type="text"
+                              value={item.description}
+                              onChange={(e) => updateServiceItem(item.id, 'description', e.target.value)}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                              placeholder="Service or part description..."
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Type
+                            </label>
+                            <select
+                              value={item.item_type}
+                              onChange={(e) => updateServiceItem(item.id, 'item_type', e.target.value)}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            >
+                              <option value="labor">Labor</option>
+                              <option value="part">Part</option>
+                              <option value="fee">Fee</option>
+                            </select>
+                          </div>
+
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Qty
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.quantity}
+                              onChange={(e) => updateServiceItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Cash Price
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.unit_price}
+                              onChange={(e) => updateServiceItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Card Price
+                            </label>
+                            <div className="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-900">
+                              ${cardUnitPrice.toFixed(2)}
+                            </div>
+                          </div>
+
+                          <div className="col-span-1 flex items-end">
+                            <button
+                              type="button"
+                              onClick={() => removeServiceItem(item.id)}
+                              disabled={serviceItems.length === 1}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="col-span-2">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Type
-                          </label>
-                          <select
-                            value={item.item_type}
-                            onChange={(e) => updateServiceItem(item.id, 'item_type', e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                          >
-                            <option value="labor">Labor</option>
-                            <option value="part">Part</option>
-                            <option value="fee">Fee</option>
-                          </select>
-                        </div>
-
-                        <div className="col-span-2">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Quantity
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.quantity}
-                            onChange={(e) => updateServiceItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                          />
-                        </div>
-
-                        <div className="col-span-2">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Unit Price
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.unit_price}
-                            onChange={(e) => updateServiceItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                          />
-                        </div>
-
-                        <div className="col-span-1 flex items-end">
-                          <button
-                            type="button"
-                            onClick={() => removeServiceItem(item.id)}
-                            disabled={serviceItems.length === 1}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        <div className="mt-3 pt-3 border-t border-gray-300 grid grid-cols-2 gap-4">
+                          <div className="text-sm">
+                            <span className="text-gray-600">Cash Line Total: </span>
+                            <span className="font-semibold text-green-700">${cashLineTotal.toFixed(2)}</span>
+                          </div>
+                          <div className="text-sm text-right">
+                            <span className="text-gray-600">Card Line Total: </span>
+                            <span className="font-semibold text-blue-700">${cardLineTotal.toFixed(2)}</span>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="mt-2 text-right text-sm font-medium text-gray-900">
-                        Line Total: ${(item.quantity * item.unit_price).toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -625,8 +645,10 @@ const CreateEstimateModal: React.FC<CreateEstimateModalProps> = ({
 
       {showAddVehicle && formData.customer_id && (
         <VehicleLookupModal
+          isOpen={showAddVehicle}
           onClose={() => setShowAddVehicle(false)}
-          onSuccess={() => {
+          onVehicleSelected={(vehicle) => {
+            setFormData({ ...formData, vehicle_id: vehicle.id });
             setShowAddVehicle(false);
             fetchCustomerVehicles(formData.customer_id);
           }}

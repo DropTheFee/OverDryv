@@ -39,14 +39,14 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimate, onClose }) =>
         .from('estimates')
         .select(`
           *,
-          profiles!estimates_customer_id_fkey (
+          profiles:customer_id (
             id,
             first_name,
             last_name,
             email,
             phone
           ),
-          vehicles (
+          vehicles:vehicle_id (
             id,
             year,
             make,
@@ -95,9 +95,9 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimate, onClose }) =>
 
     setActionLoading(true);
     try {
-      const { error } = await supabase
-        .from('estimates')
-        .update({ status: newStatus, updated_at: new Date().toISOString() } as any)
+      const { error } = await (supabase
+        .from('estimates') as any)
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', estimate.id);
 
       if (error) throw error;
@@ -121,12 +121,12 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimate, onClose }) =>
     setActionLoading(true);
     try {
       // Update status to sent
-      const { error } = await supabase
-        .from('estimates')
+      const { error } = await (supabase
+        .from('estimates') as any)
         .update({ 
           status: 'sent',
           updated_at: new Date().toISOString()
-        } as any)
+        })
         .eq('id', estimate.id);
 
       if (error) throw error;
@@ -151,9 +151,9 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimate, onClose }) =>
     try {
       // First, update estimate status to approved if not already
       if (estimateData.status !== 'approved') {
-        await supabase
-          .from('estimates')
-          .update({ status: 'approved', updated_at: new Date().toISOString() } as any)
+        await (supabase
+          .from('estimates') as any)
+          .update({ status: 'approved', updated_at: new Date().toISOString() })
           .eq('id', estimate.id);
       }
 
@@ -164,8 +164,8 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimate, onClose }) =>
       const workOrderNumber = `WO-${year}-${timestamp}`;
 
       // Create work order from estimate
-      const { data: workOrder, error: woError } = await supabase
-        .from('work_orders')
+      const { data: workOrder, error: woError } = await (supabase
+        .from('work_orders') as any)
         .insert({
           work_order_number: workOrderNumber,
           customer_id: estimateData.customer_id,
@@ -176,11 +176,12 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimate, onClose }) =>
           priority: estimateData.priority,
           total_amount: estimateData.total_amount,
           notes: `Converted from estimate ${estimateData.estimate_number}. ${estimateData.notes || ''}`,
-        } as any)
+        })
         .select()
         .single();
 
       if (woError) throw woError;
+      if (!workOrder) throw new Error('Failed to create work order');
 
       // Copy service items to work order
       const itemsToInsert = serviceItems.map(item => ({
@@ -192,9 +193,9 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimate, onClose }) =>
         item_type: item.item_type,
       }));
 
-      const { error: itemsError } = await supabase
-        .from('service_items')
-        .insert(itemsToInsert as any);
+      const { error: itemsError } = await (supabase
+        .from('service_items') as any)
+        .insert(itemsToInsert);
 
       if (itemsError) throw itemsError;
 
@@ -437,17 +438,37 @@ const EstimateDetail: React.FC<EstimateDetailProps> = ({ estimate, onClose }) =>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Service Items</h3>
             
             <div className="space-y-3 mb-6">
-              {serviceItems.map((item) => (
-                <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{item.description}</p>
-                    <p className="text-sm text-gray-500">
-                      {item.item_type} • Qty: {item.quantity} × ${item.unit_price.toFixed(2)}
-                    </p>
+              {serviceItems.map((item) => {
+                const cashTotal = item.quantity * item.unit_price;
+                const cardUnitPrice = item.unit_price * 1.035;
+                const cardTotal = cashTotal * 1.035;
+                
+                return (
+                  <div key={item.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{item.description}</p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {item.item_type} • Quantity: {item.quantity}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-300">
+                      <div className="bg-green-50 rounded p-3 border border-green-200">
+                        <p className="text-xs font-medium text-gray-600 mb-1">Cash Price</p>
+                        <p className="text-sm text-gray-700">${item.unit_price.toFixed(2)} × {item.quantity}</p>
+                        <p className="text-lg font-bold text-green-700 mt-1">${cashTotal.toFixed(2)}</p>
+                      </div>
+                      <div className="bg-blue-50 rounded p-3 border border-blue-200">
+                        <p className="text-xs font-medium text-gray-600 mb-1">Card Price</p>
+                        <p className="text-sm text-gray-700">${cardUnitPrice.toFixed(2)} × {item.quantity}</p>
+                        <p className="text-lg font-bold text-blue-700 mt-1">${cardTotal.toFixed(2)}</p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="font-semibold text-gray-900">${item.total_price.toFixed(2)}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Dual Pricing Summary */}

@@ -438,21 +438,30 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
             <table class="items-table">
               <thead>
                 <tr>
-                  <th style="width: 50%;">Description</th>
-                  <th class="text-center" style="width: 10%;">Qty</th>
-                  <th class="text-right" style="width: 20%;">Unit Price</th>
-                  <th class="text-right" style="width: 20%;">Total</th>
+                  <th style="width: 35%;">Description</th>
+                  <th class="text-center" style="width: 8%;">Qty</th>
+                  <th class="text-right" style="width: 12%;">Cash Price</th>
+                  <th class="text-right" style="width: 14%;">Cash Total</th>
+                  <th class="text-right" style="width: 12%;" class="card-price">Card Price</th>
+                  <th class="text-right" style="width: 14%;" class="card-price">Card Total</th>
                 </tr>
               </thead>
               <tbody>
-                ${invoice.items.map(item => `
-                  <tr>
-                    <td><strong>${item.description}</strong></td>
-                    <td class="text-center">${item.quantity}</td>
-                    <td class="text-right">$${item.unitPrice.toFixed(2)}</td>
-                    <td class="text-right"><strong>$${item.total.toFixed(2)}</strong></td>
-                  </tr>
-                `).join('')}
+                ${invoice.items.map(item => {
+                  const cashTotal = item.quantity * item.unitPrice;
+                  const cardUnitPrice = item.unitPrice * 1.035;
+                  const cardTotal = cashTotal * 1.035;
+                  return `
+                    <tr>
+                      <td><strong>${item.description}</strong></td>
+                      <td class="text-center">${item.quantity}</td>
+                      <td class="text-right">$${item.unitPrice.toFixed(2)}</td>
+                      <td class="text-right"><strong>$${cashTotal.toFixed(2)}</strong></td>
+                      <td class="text-right card-price">$${cardUnitPrice.toFixed(2)}</td>
+                      <td class="text-right card-price"><strong>$${cardTotal.toFixed(2)}</strong></td>
+                    </tr>
+                  `;
+                }).join('')}
               </tbody>
             </table>
             
@@ -1083,27 +1092,34 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Description</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Qty</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Unit Price</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Total</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Cash Price</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-green-700">Cash Total</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-blue-700 bg-blue-50">Card Price</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-blue-700 bg-blue-50">Card Total</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {invoice.items.map(item => (
-                <tr key={item.id}>
-                  <td className="px-4 py-3">
-                    <input
-                      type="text"
-                      value={item.description}
-                      onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                      className={`w-full border-0 focus:ring-0 focus:outline-none ${
-                        invoiceStatus === 'finalized' ? 'bg-gray-100 cursor-not-allowed' : ''
-                      }`}
-                      disabled={invoiceStatus === 'finalized'}
-                      placeholder="Service or part description"
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-center">
+              {invoice.items.map(item => {
+                const cashTotal = item.quantity * item.unitPrice;
+                const cardUnitPrice = item.unitPrice * 1.035;
+                const cardTotal = cashTotal * 1.035;
+                
+                return (
+                  <tr key={item.id}>
+                    <td className="px-4 py-3">
+                      <input
+                        type="text"
+                        value={item.description}
+                        onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                        className={`w-full border-0 focus:ring-0 focus:outline-none ${
+                          invoiceStatus === 'finalized' ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
+                        disabled={invoiceStatus === 'finalized'}
+                        placeholder="Service or part description"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
                     <input
                       type="number"
                       value={item.quantity}
@@ -1129,19 +1145,15 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
                       step="0.01"
                     />
                   </td>
-                  {dualPricingSettings.enabled && (
-                    <td className="px-4 py-3 text-right font-medium text-blue-600">
-                      ${(item.unitPrice * (1 + dualPricingSettings.cardProcessingFee / 100)).toFixed(2)}
-                    </td>
-                  )}
-                  <td className="px-4 py-3 text-right font-medium">
+                  <td className="px-4 py-3 text-right font-medium text-green-700">
                     ${item.total.toFixed(2)}
                   </td>
-                  {dualPricingSettings.enabled && (
-                    <td className="px-4 py-3 text-right font-medium text-blue-600">
-                      ${(item.total * (1 + dualPricingSettings.cardProcessingFee / 100)).toFixed(2)}
-                    </td>
-                  )}
+                  <td className="px-4 py-3 text-right bg-blue-50 font-medium text-blue-700">
+                    ${(item.unitPrice * 1.035).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 text-right bg-blue-50 font-medium text-blue-700">
+                    ${(item.total * 1.035).toFixed(2)}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => removeItem(item.id)}
