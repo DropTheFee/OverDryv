@@ -1,6 +1,6 @@
 import React from 'react';
-import { useTenant, useFeature } from '../contexts/TenantContext';
-import { FeatureGate, UpgradePrompt, ConfigureIntegrationPrompt } from '../components/ui';
+import { useTenant, useFeature } from '../../contexts/TenantContext';
+import { FeatureGate, UpgradePrompt, ConfigureIntegrationPrompt } from '../ui';
 
 /**
  * Test component for subscription infrastructure

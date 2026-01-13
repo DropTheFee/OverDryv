@@ -9,6 +9,7 @@ import VehiclesManagement from '../components/admin/VehiclesManagement';
 import PartsInventory from '../components/admin/PartsInventory';
 import ReportsSection from '../components/admin/ReportsSection';
 import AdminSettings from '../components/admin/AdminSettings';
+import { SubscriptionTest } from '../components/admin/SubscriptionTest';
 
 const AdminDashboard: React.FC = () => {
   return (
@@ -24,6 +25,7 @@ const AdminDashboard: React.FC = () => {
           <Route path="parts" element={<PartsInventory />} />
           <Route path="reports" element={<ReportsSection />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="test-subscription" element={<SubscriptionTest />} />
         </Routes>
       </div>
     </div>
