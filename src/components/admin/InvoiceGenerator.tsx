@@ -1164,7 +1164,8 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
                     </button>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
 
