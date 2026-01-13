@@ -16,19 +16,20 @@ const LoginPage: React.FC = () => {
     phone: '',
   });
 
-  const { signIn, signUp, profile } = useAuth();
+  const { signIn, signUp, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Auto-redirect after successful login when profile is loaded
   useEffect(() => {
-    if (profile && !loading && !error) {
+    if (profile && !authLoading) {
+      console.log('Profile loaded, redirecting...', profile);
       if (profile.role === 'customer') {
         navigate('/customer', { replace: true });
       } else if (profile.role === 'admin' || profile.role === 'technician') {
         navigate('/admin', { replace: true });
       }
     }
-  }, [profile, loading, error, navigate]);
+  }, [profile, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +49,8 @@ const LoginPage: React.FC = () => {
           setLoading(false);
           return;
         }
-        // Profile will be loaded and useEffect will handle navigation
+        // useEffect will handle navigation when profile loads
+        setLoading(false);
       } else {
         const { error } = await signIn(formData.email, formData.password);
         if (error) {
@@ -57,7 +59,8 @@ const LoginPage: React.FC = () => {
           setLoading(false);
           return;
         }
-        // Profile will be loaded and useEffect will handle navigation
+        // useEffect will handle navigation when profile loads
+        setLoading(false);
       }
     } catch (error: any) {
       console.error('Auth error:', error);
