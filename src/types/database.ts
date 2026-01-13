@@ -1,6 +1,291 @@
 export interface Database {
   public: {
     Tables: {
+      organizations: {
+        Row: {
+          id: string;
+          subdomain: string;
+          name: string;
+          legal_name: string | null;
+          subscription_plan: 'starter' | 'professional' | 'growth' | 'enterprise' | 'founder';
+          monthly_price: number | null;
+          user_limit: number | null;
+          subscription_status: 'demo' | 'onboarding' | 'active' | 'past_due' | 'suspended' | 'cancelled';
+          onboarding_completed_at: string | null;
+          subscription_starts_at: string | null;
+          first_billing_date: string | null;
+          next_billing_date: string | null;
+          is_founder: boolean;
+          current_user_count: number;
+          current_customer_count: number;
+          current_work_orders_total: number;
+          current_storage_bytes: number;
+          addon_quickbooks_async: boolean;
+          addon_partstech: boolean;
+          addon_digits_ai: 'basic' | 'professional' | 'enterprise' | null;
+          addon_honkamp_payroll: boolean;
+          billing_email: string;
+          payment_gateway: string;
+          dejavoo_merchant_id: string | null;
+          phone: string | null;
+          address: Record<string, any> | null;
+          settings: Record<string, any>;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          subdomain: string;
+          name: string;
+          legal_name?: string | null;
+          subscription_plan?: 'starter' | 'professional' | 'growth' | 'enterprise' | 'founder';
+          monthly_price?: number | null;
+          user_limit?: number | null;
+          subscription_status?: 'demo' | 'onboarding' | 'active' | 'past_due' | 'suspended' | 'cancelled';
+          onboarding_completed_at?: string | null;
+          subscription_starts_at?: string | null;
+          first_billing_date?: string | null;
+          next_billing_date?: string | null;
+          is_founder?: boolean;
+          current_user_count?: number;
+          current_customer_count?: number;
+          current_work_orders_total?: number;
+          current_storage_bytes?: number;
+          addon_quickbooks_async?: boolean;
+          addon_partstech?: boolean;
+          addon_digits_ai?: 'basic' | 'professional' | 'enterprise' | null;
+          addon_honkamp_payroll?: boolean;
+          billing_email: string;
+          payment_gateway?: string;
+          dejavoo_merchant_id?: string | null;
+          phone?: string | null;
+          address?: Record<string, any> | null;
+          settings?: Record<string, any>;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          subdomain?: string;
+          name?: string;
+          legal_name?: string | null;
+          subscription_plan?: 'starter' | 'professional' | 'growth' | 'enterprise' | 'founder';
+          monthly_price?: number | null;
+          user_limit?: number | null;
+          subscription_status?: 'demo' | 'onboarding' | 'active' | 'past_due' | 'suspended' | 'cancelled';
+          onboarding_completed_at?: string | null;
+          subscription_starts_at?: string | null;
+          first_billing_date?: string | null;
+          next_billing_date?: string | null;
+          is_founder?: boolean;
+          current_user_count?: number;
+          current_customer_count?: number;
+          current_work_orders_total?: number;
+          current_storage_bytes?: number;
+          addon_quickbooks_async?: boolean;
+          addon_partstech?: boolean;
+          addon_digits_ai?: 'basic' | 'professional' | 'enterprise' | null;
+          addon_honkamp_payroll?: boolean;
+          billing_email?: string;
+          payment_gateway?: string;
+          dejavoo_merchant_id?: string | null;
+          phone?: string | null;
+          address?: Record<string, any> | null;
+          settings?: Record<string, any>;
+          updated_at?: string;
+          created_by?: string | null;
+        };
+      };
+      organization_features: {
+        Row: {
+          id: string;
+          organization_id: string;
+          feature_key: string;
+          enabled: boolean;
+          config: Record<string, any>;
+          enabled_at: string | null;
+          disabled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          feature_key: string;
+          enabled?: boolean;
+          config?: Record<string, any>;
+          enabled_at?: string | null;
+          disabled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          feature_key?: string;
+          enabled?: boolean;
+          config?: Record<string, any>;
+          enabled_at?: string | null;
+          disabled_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      organization_integrations: {
+        Row: {
+          id: string;
+          organization_id: string;
+          integration_key: string;
+          enabled: boolean;
+          credentials: Record<string, any> | null;
+          config: Record<string, any>;
+          status: 'active' | 'error' | 'disabled' | 'testing';
+          last_synced_at: string | null;
+          last_error: string | null;
+          error_count: number;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          integration_key: string;
+          enabled?: boolean;
+          credentials?: Record<string, any> | null;
+          config?: Record<string, any>;
+          status?: 'active' | 'error' | 'disabled' | 'testing';
+          last_synced_at?: string | null;
+          last_error?: string | null;
+          error_count?: number;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          integration_key?: string;
+          enabled?: boolean;
+          credentials?: Record<string, any> | null;
+          config?: Record<string, any>;
+          status?: 'active' | 'error' | 'disabled' | 'testing';
+          last_synced_at?: string | null;
+          last_error?: string | null;
+          error_count?: number;
+          updated_at?: string;
+          created_by?: string | null;
+        };
+      };
+      feature_audit_log: {
+        Row: {
+          id: string;
+          organization_id: string;
+          feature_key: string | null;
+          integration_key: string | null;
+          action: 'enabled' | 'disabled' | 'configured' | 'upgraded' | 'downgraded' | 'tested';
+          changed_by: string | null;
+          changed_by_name: string | null;
+          previous_value: Record<string, any> | null;
+          new_value: Record<string, any> | null;
+          ip_address: string | null;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          feature_key?: string | null;
+          integration_key?: string | null;
+          action: 'enabled' | 'disabled' | 'configured' | 'upgraded' | 'downgraded' | 'tested';
+          changed_by?: string | null;
+          changed_by_name?: string | null;
+          previous_value?: Record<string, any> | null;
+          new_value?: Record<string, any> | null;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          feature_key?: string | null;
+          integration_key?: string | null;
+          action?: 'enabled' | 'disabled' | 'configured' | 'upgraded' | 'downgraded' | 'tested';
+          changed_by?: string | null;
+          changed_by_name?: string | null;
+          previous_value?: Record<string, any> | null;
+          new_value?: Record<string, any> | null;
+          ip_address?: string | null;
+          user_agent?: string | null;
+        };
+      };
+      subscription_history: {
+        Row: {
+          id: string;
+          organization_id: string;
+          previous_plan: string | null;
+          new_plan: string;
+          action: 'created' | 'upgraded' | 'downgraded' | 'cancelled' | 'reactivated' | 'demo_completed' | 'onboarding_started' | 'onboarding_completed' | 'expired' | 'founder_activated';
+          previous_amount: number | null;
+          new_amount: number | null;
+          effective_date: string;
+          notes: string | null;
+          changed_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          previous_plan?: string | null;
+          new_plan: string;
+          action: 'created' | 'upgraded' | 'downgraded' | 'cancelled' | 'reactivated' | 'demo_completed' | 'onboarding_started' | 'onboarding_completed' | 'expired' | 'founder_activated';
+          previous_amount?: number | null;
+          new_amount?: number | null;
+          effective_date?: string;
+          notes?: string | null;
+          changed_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          previous_plan?: string | null;
+          new_plan?: string;
+          action?: 'created' | 'upgraded' | 'downgraded' | 'cancelled' | 'reactivated' | 'demo_completed' | 'onboarding_started' | 'onboarding_completed' | 'expired' | 'founder_activated';
+          previous_amount?: number | null;
+          new_amount?: number | null;
+          effective_date?: string;
+          notes?: string | null;
+          changed_by?: string | null;
+        };
+      };
+      usage_tracking: {
+        Row: {
+          id: string;
+          organization_id: string;
+          metric: string;
+          value: number;
+          period: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          metric: string;
+          value: number;
+          period: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          metric?: string;
+          value?: number;
+          period?: string;
+        };
+      };
       profiles: {
         Row: {
           id: string;
