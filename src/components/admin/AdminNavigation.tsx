@@ -7,7 +7,8 @@ import {
   Car, 
   BarChart3,
   Package,
-  Settings
+  Settings,
+  FileText
 } from 'lucide-react';
 
 const AdminNavigation: React.FC = () => {
@@ -15,6 +16,7 @@ const AdminNavigation: React.FC = () => {
 
   const navItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Overview' },
+    { path: '/admin/estimates', icon: FileText, label: 'Estimates' },
     { path: '/admin/work-orders', icon: ClipboardList, label: 'Work Orders' },
     { path: '/admin/customers', icon: Users, label: 'Customers' },
     { path: '/admin/vehicles', icon: Car, label: 'Vehicles' },

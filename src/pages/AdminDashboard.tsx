@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AdminNavigation from '../components/admin/AdminNavigation';
 import AdminOverview from '../components/admin/AdminOverview';
+import EstimatesManagement from '../components/admin/EstimatesManagement';
 import WorkOrdersManagement from '../components/admin/WorkOrdersManagement';
 import CustomersManagement from '../components/admin/CustomersManagement';
 import VehiclesManagement from '../components/admin/VehiclesManagement';
@@ -16,6 +17,7 @@ const AdminDashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Routes>
           <Route index element={<AdminOverview />} />
+          <Route path="estimates" element={<EstimatesManagement />} />
           <Route path="work-orders" element={<WorkOrdersManagement />} />
           <Route path="customers" element={<CustomersManagement />} />
           <Route path="vehicles" element={<VehiclesManagement />} />
