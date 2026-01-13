@@ -8,7 +8,8 @@ interface Profile {
   first_name: string;
   last_name: string;
   phone?: string;
-  role: 'customer' | 'admin' | 'technician';
+  role: 'customer' | 'admin' | 'technician' | 'master_admin';
+  organization_id?: string | null;
 }
 
 interface AuthContextType {

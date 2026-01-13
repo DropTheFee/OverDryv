@@ -293,7 +293,8 @@ export interface Database {
           first_name: string;
           last_name: string;
           phone: string;
-          role: 'customer' | 'admin' | 'technician';
+          role: 'customer' | 'admin' | 'technician' | 'master_admin';
+          organization_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -303,7 +304,8 @@ export interface Database {
           first_name: string;
           last_name: string;
           phone?: string;
-          role?: 'customer' | 'admin' | 'technician';
+          role?: 'customer' | 'admin' | 'technician' | 'master_admin';
+          organization_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -313,7 +315,8 @@ export interface Database {
           first_name?: string;
           last_name?: string;
           phone?: string;
-          role?: 'customer' | 'admin' | 'technician';
+          role?: 'customer' | 'admin' | 'technician' | 'master_admin';
+          organization_id?: string | null;
           updated_at?: string;
         };
       };
