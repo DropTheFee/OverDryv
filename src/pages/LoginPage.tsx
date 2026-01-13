@@ -21,15 +21,14 @@ const LoginPage: React.FC = () => {
 
   // Auto-redirect after successful login when profile is loaded
   useEffect(() => {
-    if (profile && !error && loading) {
-      setLoading(false);
+    if (profile && !loading && !error) {
       if (profile.role === 'customer') {
         navigate('/customer', { replace: true });
       } else if (profile.role === 'admin' || profile.role === 'technician') {
         navigate('/admin', { replace: true });
       }
     }
-  }, [profile, error, loading, navigate]);
+  }, [profile, loading, error, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

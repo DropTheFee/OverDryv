@@ -438,12 +438,10 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
             <table class="items-table">
               <thead>
                 <tr>
-                  <th style="width: 40%;">Description</th>
-                  <th class="text-center" style="width: 8%;">Qty</th>
-                  <th class="text-right" style="width: 12%;">${dualPricingSettings.enabled ? 'Cash Price' : 'Unit Price'}</th>
-                  ${dualPricingSettings.enabled ? '<th class="text-right" style="width: 12%;">Card Price</th>' : ''}
-                  <th class="text-right" style="width: 14%;">${dualPricingSettings.enabled ? 'Cash Total' : 'Total'}</th>
-                  ${dualPricingSettings.enabled ? '<th class="text-right" style="width: 14%;">Card Total</th>' : ''}
+                  <th style="width: 50%;">Description</th>
+                  <th class="text-center" style="width: 10%;">Qty</th>
+                  <th class="text-right" style="width: 20%;">Unit Price</th>
+                  <th class="text-right" style="width: 20%;">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -452,9 +450,7 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
                     <td><strong>${item.description}</strong></td>
                     <td class="text-center">${item.quantity}</td>
                     <td class="text-right">$${item.unitPrice.toFixed(2)}</td>
-                    ${dualPricingSettings.enabled ? `<td class="text-right card-price">$${(item.unitPrice * (1 + dualPricingSettings.cardProcessingFee / 100)).toFixed(2)}</td>` : ''}
                     <td class="text-right"><strong>$${item.total.toFixed(2)}</strong></td>
-                    ${dualPricingSettings.enabled ? `<td class="text-right card-price"><strong>$${(item.total * (1 + dualPricingSettings.cardProcessingFee / 100)).toFixed(2)}</strong></td>` : ''}
                   </tr>
                 `).join('')}
               </tbody>
@@ -1087,18 +1083,8 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Description</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Qty</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">
-                  {dualPricingSettings.enabled ? 'Cash Price' : 'Unit Price'}
-                </th>
-                {dualPricingSettings.enabled && (
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Card Price</th>
-                )}
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">
-                  {dualPricingSettings.enabled ? 'Cash Total' : 'Total'}
-                </th>
-                {dualPricingSettings.enabled && (
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Card Total</th>
-                )}
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Unit Price</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Total</th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Actions</th>
               </tr>
             </thead>

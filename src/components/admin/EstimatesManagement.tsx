@@ -53,8 +53,8 @@ const EstimatesManagement: React.FC = () => {
         .from('estimates')
         .select(`
           *,
-          profiles!estimates_customer_id_fkey (first_name, last_name, email),
-          vehicles (year, make, model, license_plate)
+          profiles:customer_id (first_name, last_name, email),
+          vehicles:vehicle_id (year, make, model, license_plate)
         `)
         .order('created_at', { ascending: false });
 
