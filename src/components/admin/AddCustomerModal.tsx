@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, User, Phone, Mail, MapPin, Save } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface AddCustomerModalProps {
   isOpen: boolean;
@@ -30,44 +31,37 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
     setLoading(true);
 
     try {
-      // Create new customer
-      const newCustomer = {
-        id: `cust${Date.now()}`,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        zip_code: formData.zipCode,
-        notes: formData.notes,
-        role: 'customer',
-        created_at: new Date().toISOString(),
-        total_spent: 0,
-        total_services: 0,
-        vehicles: 0,
-      };
+      // Create customer profile in Supabase
+      const { data: newProfile, error: profileError } = await (supabase
+        .from('profiles') as any)
+        .insert({
+          email: formData.email,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          role: 'customer',
+        })
+        .select()
+        .single();
 
-      // Get existing customers from localStorage
-      const existingCustomers = JSON.parse(localStorage.getItem('customers') || '[]');
-      
-      // Add new customer
-      const updatedCustomers = [newCustomer, ...existingCustomers];
-      
-      // Save back to localStorage
-      localStorage.setItem('customers', JSON.stringify(updatedCustomers));
-      
-      console.log('Customer created:', newCustomer);
-      
-      onSuccess?.(newCustomer);
-      onClose();
-      resetForm();
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        throw new Error(profileError.message);
+      }
+
+      console.log('Customer created in database:', newProfile);
       
       alert(`Customer ${formData.firstName} ${formData.lastName} added successfully!`);
-    } catch (error) {
+      
+      if (onSuccess) {
+        onSuccess(newProfile);
+      }
+      
+      onClose();
+      resetForm();
+    } catch (error: any) {
       console.error('Error creating customer:', error);
-      alert('Error creating customer. Please try again.');
+      alert(`Error creating customer: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
