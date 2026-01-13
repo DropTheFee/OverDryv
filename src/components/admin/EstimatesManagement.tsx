@@ -49,6 +49,7 @@ const EstimatesManagement: React.FC = () => {
 
   const fetchEstimates = async () => {
     try {
+      console.log('Fetching estimates...');
       const { data, error } = await supabase
         .from('estimates')
         .select(`
@@ -58,10 +59,16 @@ const EstimatesManagement: React.FC = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('Fetched estimates:', data);
       setEstimates(data || []);
     } catch (error) {
       console.error('Error fetching estimates:', error);
+      alert('Failed to load estimates. Please check console for details.');
     } finally {
       setLoading(false);
     }
