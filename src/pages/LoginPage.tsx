@@ -16,20 +16,21 @@ const LoginPage: React.FC = () => {
     phone: '',
   });
 
-  const { signIn, signUp, profile, loading: authLoading } = useAuth();
+  const { signIn, signUp, user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Auto-redirect after successful login when profile is loaded
   useEffect(() => {
-    if (profile && !authLoading) {
+    // Only redirect if user is authenticated and profile is loaded
+    if (user && profile && !authLoading) {
       console.log('Profile loaded, redirecting...', profile);
       if (profile.role === 'customer') {
         navigate('/customer', { replace: true });
-      } else if (profile.role === 'admin' || profile.role === 'technician') {
+      } else if (profile.role === 'admin' || profile.role === 'technician' || profile.role === 'master_admin') {
         navigate('/admin', { replace: true });
       }
     }
-  }, [profile, authLoading, navigate]);
+  }, [user, profile, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
