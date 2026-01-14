@@ -2,6 +2,9 @@
 -- Add Demo Organization with Subdomain
 -- =====================================================
 
+-- Remove any existing demo organization first (to ensure clean state)
+DELETE FROM organizations WHERE subdomain = 'demo';
+
 -- Insert demo organization (idempotent - safe to run multiple times)
 INSERT INTO organizations (
   id,
