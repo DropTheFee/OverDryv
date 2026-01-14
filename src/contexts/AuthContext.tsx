@@ -2,6 +2,10 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { getSubdomain } from '../utils/subdomain';
+import type { Database } from '../types/database';
+
+type Organization = Database['public']['Tables']['organizations']['Row'];
 
 interface Profile {
   id: string;
@@ -16,6 +20,7 @@ interface Profile {
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
+  organization: Organization | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: any }>;
@@ -29,10 +34,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Load organization by subdomain first
+    const loadOrganization = async () => {
+      const subdomain = getSubdomain();
+      if (subdomain) {
+        try {
+          const { data, error } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('subdomain', subdomain)
+            .single();
+          
+          if (!error && data) {
+            setOrganization(data);
+          } else {
+            console.error('Organization not found for subdomain:', subdomain);
+          }
+        } catch (error) {
+          console.error('Error loading organization:', error);
+        }
+      }
+    };
+    
+    loadOrganization();
+    
     // Get initial session
     const getInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -160,6 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     user,
     profile,
+    organization,
     session,
     loading,
     signIn,

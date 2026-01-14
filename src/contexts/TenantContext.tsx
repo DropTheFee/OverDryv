@@ -58,33 +58,42 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 // =====================================================
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile, organization: authOrganization, loading: authLoading } = useAuth();
   const [tenant, setTenant] = useState<TenantConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Load tenant configuration
   const loadTenantConfig = async () => {
-    if (!profile?.organization_id) {
+    // Use organization from AuthContext if available (subdomain-based)
+    // Fall back to profile.organization_id for backwards compatibility
+    const organizationId = authOrganization?.id || profile?.organization_id;
+    
+    if (!organizationId) {
       setTenant(null);
       setLoading(false);
       return;
     }
 
     try {
-      // Load organization
-      const { data: organization, error: orgError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', profile.organization_id)
-        .single();
+      // Load organization (prefer authOrganization if available)
+      let organization = authOrganization;
+      
+      if (!organization) {
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('id', organizationId)
+          .single();
 
-      if (orgError) throw orgError;
+        if (orgError) throw orgError;
+        organization = orgData;
+      }
 
       // Load features
       const { data: featuresData, error: featuresError } = await supabase
         .from('organization_features')
         .select('*')
-        .eq('organization_id', profile.organization_id);
+        .eq('organization_id', organizationId);
 
       if (featuresError) throw featuresError;
 
@@ -92,7 +101,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const { data: integrationsData, error: integrationsError } = await supabase
         .from('organization_integrations')
         .select('*')
-        .eq('organization_id', profile.organization_id);
+        .eq('organization_id', organizationId);
 
       if (integrationsError) throw integrationsError;
 
@@ -121,16 +130,17 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Load on mount and when profile changes
+  // Load on mount and when profile or organization changes
   useEffect(() => {
     if (!authLoading) {
       loadTenantConfig();
     }
-  }, [profile?.organization_id, authLoading]);
+  }, [profile?.organization_id, authOrganization?.id, authLoading]);
 
   // Subscribe to real-time updates
   useEffect(() => {
-    if (!profile?.organization_id) return;
+    const organizationId = authOrganization?.id || profile?.organization_id;
+    if (!organizationId) return;
 
     // Subscribe to organization changes
     const orgChannel = supabase
@@ -141,7 +151,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           event: '*',
           schema: 'public',
           table: 'organizations',
-          filter: `id=eq.${profile.organization_id}`
+          filter: `id=eq.${organizationId}`
         },
         () => {
           loadTenantConfig();
@@ -158,7 +168,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           event: '*',
           schema: 'public',
           table: 'organization_features',
-          filter: `organization_id=eq.${profile.organization_id}`
+          filter: `organization_id=eq.${organizationId}`
         },
         () => {
           loadTenantConfig();
@@ -175,7 +185,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           event: '*',
           schema: 'public',
           table: 'organization_integrations',
-          filter: `organization_id=eq.${profile.organization_id}`
+          filter: `organization_id=eq.${organizationId}`
         },
         () => {
           loadTenantConfig();
@@ -188,7 +198,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       supabase.removeChannel(featuresChannel);
       supabase.removeChannel(integrationsChannel);
     };
-  }, [profile?.organization_id]);
+  }, [profile?.organization_id, authOrganization?.id]);
 
   // Helper: Check if feature is enabled
   const hasFeature = (feature: FeatureKey): boolean => {
