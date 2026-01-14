@@ -22,12 +22,12 @@ const LandingPage: React.FC = () => {
             The complete automotive shop management platform that keeps your business running smoothly
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link 
-              to="/demo" 
+            <a 
+              href="https://demo.overdryv.app/login" 
               className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors flex items-center gap-2 shadow-lg"
             >
               Try Demo <ArrowRight className="w-5 h-5" />
-            </Link>
+            </a>
             <Link 
               to="/login" 
               className="bg-white hover:bg-gray-50 text-gray-900 px-8 py-4 rounded-lg font-semibold text-lg transition-colors border-2 border-gray-300 flex items-center gap-2"
@@ -89,12 +89,12 @@ const LandingPage: React.FC = () => {
           <p className="text-xl mb-8 opacity-90">
             See how OverDryv can streamline your operations and delight your customers
           </p>
-          <Link 
-            to="/demo" 
+          <a 
+            href="https://demo.overdryv.app/login" 
             className="bg-white text-primary-600 hover:bg-gray-100 px-8 py-4 rounded-lg font-semibold text-lg transition-colors inline-flex items-center gap-2"
           >
             Start Demo <ArrowRight className="w-5 h-5" />
-          </Link>
+          </a>
         </div>
       </div>
 

@@ -21,12 +21,16 @@ const LoginPage: React.FC = () => {
 
   // Auto-redirect after successful login when profile is loaded
   useEffect(() => {
+    console.log('LoginPage useEffect - user:', !!user, 'profile:', !!profile, 'authLoading:', authLoading);
+    
     // Only redirect if user is authenticated and profile is loaded
     if (user && profile && !authLoading) {
-      console.log('Profile loaded, redirecting...', profile);
+      console.log('Redirecting user with profile:', profile);
       if (profile.role === 'customer') {
+        console.log('Navigating to /customer');
         navigate('/customer', { replace: true });
       } else if (profile.role === 'admin' || profile.role === 'technician' || profile.role === 'master_admin') {
+        console.log('Navigating to /dashboard');
         navigate('/dashboard', { replace: true });
       }
     }
@@ -36,6 +40,8 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    console.log('handleSubmit - isSignUp:', isSignUp, 'email:', formData.email);
 
     try {
       if (isSignUp) {
@@ -50,16 +56,20 @@ const LoginPage: React.FC = () => {
           setLoading(false);
           return;
         }
+        console.log('Sign up successful');
         // useEffect will handle navigation when profile loads
         setLoading(false);
       } else {
+        console.log('Calling signIn...');
         const { error } = await signIn(formData.email, formData.password);
+        console.log('signIn completed - error:', error);
         if (error) {
           console.error('Sign in error:', error);
           setError(error.message || 'Invalid email or password');
           setLoading(false);
           return;
         }
+        console.log('Sign in successful, profile should be loaded');
         // useEffect will handle navigation when profile loads
         setLoading(false);
       }

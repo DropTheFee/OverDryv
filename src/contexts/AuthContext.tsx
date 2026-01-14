@@ -97,6 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchProfile = async (userId: string) => {
+    console.log('Fetching profile for userId:', userId);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -108,6 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Profile fetch error:', error);
         // If profile doesn't exist, create a default admin profile for demo
         if (error.code === 'PGRST116') {
+          console.log('Profile not found, creating default profile');
           const defaultProfile = {
             id: userId,
             email: session?.user?.email || '',
@@ -119,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return;
       }
+      console.log('Profile fetched successfully:', data);
       setProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -126,17 +129,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (!error && data.user) {
-      // Fetch profile immediately so caller can redirect
-      await fetchProfile(data.user.id);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      console.log('signIn response - error:', error, 'user:', !!data?.user);
+      
+      if (!error && data.user) {
+        // Fetch profile immediately so caller can redirect
+        await fetchProfile(data.user.id);
+        return { error: null };
+      }
+      
+      return { error };
+    } catch (err) {
+      console.error('signIn exception:', err);
+      return { error: err };
     }
-    
-    return { error };
   };
 
   const signUp = async (email: string, password: string, userData: any) => {
