@@ -21,7 +21,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/check-in" element={<CheckInPage />} />
             <Route path="/invoice-demo" element={<InvoiceDemo />} />
-            <Route path="/admin/*" element={<AdminDashboard />} />
+            <Route path="/dashboard/*" element={<AdminDashboard />} />
             <Route path="/customer/*" element={<CustomerPortal />} />
           </Routes>
         </Layout>

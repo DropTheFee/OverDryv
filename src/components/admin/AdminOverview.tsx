@@ -143,7 +143,7 @@ const AdminOverview: React.FC = () => {
                     {order.status.replace('_', ' ').toUpperCase()}
                   </span>
                   <Link 
-                    to={`/admin/work-orders?view=${order.id}`}
+                    to={`/dashboard/work-orders?view=${order.id}`}
                     className="text-blue-600 hover:text-blue-900 text-sm font-medium"
                   >
                     View
@@ -182,7 +182,7 @@ const AdminOverview: React.FC = () => {
           <p className="text-sm text-gray-600">Search vehicle history</p>
         </button>
         <button 
-          onClick={() => navigate('/admin/parts')}
+          onClick={() => navigate('/dashboard/parts')}
           className="bg-white border border-gray-200 rounded-lg p-4 text-left hover:shadow-md transition-shadow"
         >
           <Package className="w-6 h-6 text-indigo-600 mb-2" />
@@ -190,7 +190,7 @@ const AdminOverview: React.FC = () => {
           <p className="text-sm text-gray-600">Manage parts and stock</p>
         </button>
         <button 
-          onClick={() => navigate('/admin/reports')}
+          onClick={() => navigate('/dashboard/reports')}
           className="bg-white border border-gray-200 rounded-lg p-4 text-left hover:shadow-md transition-shadow"
         >
           <FileText className="w-6 h-6 text-purple-600 mb-2" />
@@ -198,7 +198,7 @@ const AdminOverview: React.FC = () => {
           <p className="text-sm text-gray-600">Business analytics and reports</p>
         </button>
         <button 
-          onClick={() => navigate('/admin/settings')}
+          onClick={() => navigate('/dashboard/settings')}
           className="bg-white border border-gray-200 rounded-lg p-4 text-left hover:shadow-md transition-shadow"
         >
           <Settings className="w-6 h-6 text-gray-600 mb-2" />
@@ -206,7 +206,7 @@ const AdminOverview: React.FC = () => {
           <p className="text-sm text-gray-600">Configure dual pricing & more</p>
         </button>
         <button 
-          onClick={() => navigate('/admin/reports')}
+          onClick={() => navigate('/dashboard/reports')}
           className="bg-white border border-gray-200 rounded-lg p-4 text-left hover:shadow-md transition-shadow"
         >
           <TrendingUp className="w-6 h-6 text-orange-600 mb-2" />
@@ -233,7 +233,7 @@ const AdminOverview: React.FC = () => {
         onSuccess={() => {
           setShowCreateWorkOrder(false);
           // Navigate to work orders page to see the new order
-          navigate('/admin/work-orders');
+          navigate('/dashboard/work-orders');
         }}
       />
 

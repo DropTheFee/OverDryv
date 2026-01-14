@@ -47,13 +47,13 @@ const Navbar: React.FC = () => {
                   </Link>
                 )}
                 {(profile?.role === 'admin' || profile?.role === 'technician') && (
-                  <Link to="/admin" className="flex items-center space-x-1 hover:text-accent-300 transition-colors">
+                  <Link to="/dashboard" className="flex items-center space-x-1 hover:text-accent-300 transition-colors">
                     <Home className="w-4 h-4" />
                     <span>Dashboard</span>
                   </Link>
                 )}
                 {!profile && (
-                  <Link to="/admin" className="flex items-center space-x-1 hover:text-accent-300 transition-colors">
+                  <Link to="/dashboard" className="flex items-center space-x-1 hover:text-accent-300 transition-colors">
                     <Home className="w-4 h-4" />
                     <span>Dashboard</span>
                   </Link>

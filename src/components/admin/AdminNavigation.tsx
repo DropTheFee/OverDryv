@@ -15,14 +15,14 @@ const AdminNavigation: React.FC = () => {
   const location = useLocation();
 
   const navItems = [
-    { path: '/admin', icon: LayoutDashboard, label: 'Overview' },
-    { path: '/admin/estimates', icon: FileText, label: 'Estimates' },
-    { path: '/admin/work-orders', icon: ClipboardList, label: 'Work Orders' },
-    { path: '/admin/customers', icon: Users, label: 'Customers' },
-    { path: '/admin/vehicles', icon: Car, label: 'Vehicles' },
-    { path: '/admin/parts', icon: Package, label: 'Parts' },
-    { path: '/admin/reports', icon: BarChart3, label: 'Reports' },
-    { path: '/admin/settings', icon: Settings, label: 'Settings' },
+    { path: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
+    { path: '/dashboard/estimates', icon: FileText, label: 'Estimates' },
+    { path: '/dashboard/work-orders', icon: ClipboardList, label: 'Work Orders' },
+    { path: '/dashboard/customers', icon: Users, label: 'Customers' },
+    { path: '/dashboard/vehicles', icon: Car, label: 'Vehicles' },
+    { path: '/dashboard/parts', icon: Package, label: 'Parts' },
+    { path: '/dashboard/reports', icon: BarChart3, label: 'Reports' },
+    { path: '/dashboard/settings', icon: Settings, label: 'Settings' },
   ];
 
   return (

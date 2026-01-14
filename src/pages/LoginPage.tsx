@@ -27,7 +27,7 @@ const LoginPage: React.FC = () => {
       if (profile.role === 'customer') {
         navigate('/customer', { replace: true });
       } else if (profile.role === 'admin' || profile.role === 'technician' || profile.role === 'master_admin') {
-        navigate('/admin', { replace: true });
+        navigate('/dashboard', { replace: true });
       }
     }
   }, [user, profile, authLoading, navigate]);

@@ -99,7 +99,7 @@ export const ConfigureIntegrationPrompt: React.FC<ConfigureIntegrationPromptProp
           
           <div className="flex space-x-3">
             <button
-              onClick={() => window.location.href = '/admin/settings?tab=integrations'}
+              onClick={() => window.location.href = '/dashboard/settings?tab=integrations'}
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium px-6 py-2 rounded-lg transition-colors"
             >
               Configure Integration
