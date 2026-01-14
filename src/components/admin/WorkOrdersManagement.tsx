@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Clock, AlertTriangle, DollarSign, TrendingUp } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 import WorkOrderDetail from './WorkOrderDetail';
 import CreateWorkOrderModal from './CreateWorkOrderModal';
 
@@ -20,74 +21,33 @@ const WorkOrdersManagement: React.FC = () => {
     fetchWorkOrders();
   }, []);
 
-  const fetchWorkOrders = () => {
-    // Get work orders from localStorage (includes both demo and new ones)
-    const storedOrders = JSON.parse(localStorage.getItem('workOrders') || '[]');
-    
-    // If no stored orders, initialize with demo data
-    if (storedOrders.length === 0) {
-      const mockWorkOrders = [
-        {
-          id: 'wo1',
-          work_order_number: 'WO-001',
-          customer: { first_name: 'John', last_name: 'Smith' },
-          vehicle: { year: 2022, make: 'Toyota', model: 'Camry' },
-          service_type: 'Oil Change & Inspection',
-          status: 'in_progress',
-          priority: 'normal',
-          technician: { first_name: 'Mike', last_name: 'Johnson' },
-          created_at: '2025-01-15T08:30:00',
-          estimated_completion: '2025-01-15T14:00:00',
-          total_amount: 75.99,
-        },
-        {
-          id: 'wo2',
-          work_order_number: 'WO-002',
-          customer: { first_name: 'Sarah', last_name: 'Davis' },
-          vehicle: { year: 2020, make: 'Honda', model: 'Civic' },
-          service_type: 'Brake Repair',
-          status: 'quality_check',
-          priority: 'high',
-          technician: { first_name: 'Tom', last_name: 'Wilson' },
-          created_at: '2025-01-14T13:15:00',
-          estimated_completion: '2025-01-15T16:00:00',
-          total_amount: 285.50,
-        },
-        {
-          id: 'wo3',
-          work_order_number: 'WO-003',
-          customer: { first_name: 'Mike', last_name: 'Chen' },
-          vehicle: { year: 2019, make: 'Ford', model: 'F-150' },
-          service_type: 'Engine Diagnostics',
-          status: 'pending',
-          priority: 'urgent',
-          technician: null,
-          created_at: '2025-01-15T10:00:00',
-          estimated_completion: '2025-01-15T17:00:00',
-          total_amount: 150.00,
-        },
-        {
-          id: 'wo4',
-          work_order_number: 'WO-004',
-          customer: { first_name: 'Lisa', last_name: 'Rodriguez' },
-          vehicle: { year: 2021, make: 'Nissan', model: 'Altima' },
-          service_type: 'Tire Replacement',
-          status: 'completed',
-          priority: 'normal',
-          technician: { first_name: 'Sarah', last_name: 'Johnson' },
-          created_at: '2025-01-14T09:00:00',
-          estimated_completion: '2025-01-14T15:00:00',
-          total_amount: 420.00,
-        },
-      ];
+  const fetchWorkOrders = async () => {
+    setLoading(true);
+    try {
+      // Fetch work orders from database with customer and vehicle details
+      const { data, error } = await supabase
+        .from('work_orders')
+        .select(`
+          *,
+          customer:customer_id (id, first_name, last_name, email),
+          vehicle:vehicle_id (id, year, make, model, vin, license_plate),
+          technician:technician_id (id, first_name, last_name)
+        `)
+        .order('created_at', { ascending: false });
       
-      localStorage.setItem('workOrders', JSON.stringify(mockWorkOrders));
-      setWorkOrders(mockWorkOrders);
-    } else {
-      setWorkOrders(storedOrders);
+      if (error) {
+        console.error('Error fetching work orders:', error);
+        setWorkOrders([]);
+        return;
+      }
+      
+      setWorkOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching work orders:', error);
+      setWorkOrders([]);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
   const getStatusColor = (status: string) => {
     switch (status) {

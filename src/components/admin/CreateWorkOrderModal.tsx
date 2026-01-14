@@ -104,48 +104,35 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
     setLoading(true);
 
     try {
-      // Create new work order with proper data structure
-      const selectedCustomer = customers.find(c => c.id === formData.customer_id);
-      const selectedVehicle = vehicles.find(v => v.id === formData.vehicle_id);
+      // Insert work order into database
+      const { data, error } = await supabase
+        .from('work_orders')
+        .insert([{
+          customer_id: formData.customer_id,
+          vehicle_id: formData.vehicle_id,
+          service_type: formData.service_type,
+          description: formData.description,
+          priority: formData.priority,
+          status: 'pending',
+          estimated_completion: formData.estimated_completion || new Date(Date.now() + 24*60*60*1000).toISOString(),
+          total_amount: 0,
+        }])
+        .select();
       
-      const newWorkOrder = {
-        id: `wo${Date.now()}`,
-        work_order_number: `WO-${String(Date.now()).slice(-3).padStart(3, '0')}`,
-        customer: {
-          first_name: selectedCustomer?.first_name || 'Unknown',
-          last_name: selectedCustomer?.last_name || 'Customer',
-        },
-        vehicle: {
-          year: selectedVehicle?.year || 2020,
-          make: selectedVehicle?.make || 'Unknown',
-          model: selectedVehicle?.model || 'Vehicle',
-        },
-        service_type: formData.service_type,
-        description: formData.description,
-        status: 'pending',
-        priority: formData.priority,
-        technician: null,
-        created_at: new Date().toISOString(),
-        estimated_completion: formData.estimated_completion || new Date(Date.now() + 24*60*60*1000).toISOString(),
-        total_amount: 0,
-      };
+      if (error) {
+        console.error('Error creating work order:', error);
+        alert('Failed to create work order. Please try again.');
+        return;
+      }
       
-      // Get existing work orders from localStorage
-      const existingOrders = JSON.parse(localStorage.getItem('workOrders') || '[]');
-      
-      // Add new work order
-      const updatedOrders = [newWorkOrder, ...existingOrders];
-      
-      // Save back to localStorage
-      localStorage.setItem('workOrders', JSON.stringify(updatedOrders));
-      
-      console.log('Work order created:', newWorkOrder);
+      console.log('Work order created:', data);
       
       onSuccess?.();
       onClose();
       resetForm();
     } catch (error) {
       console.error('Error creating work order:', error);
+      alert('Failed to create work order. Please try again.');
     } finally {
       setLoading(false);
     }

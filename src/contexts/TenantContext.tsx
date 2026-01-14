@@ -97,14 +97,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (integrationsError) throw integrationsError;
 
       // Build feature map
-      const features: Record<string, OrganizationFeature> = {};
-      featuresData?.forEach(feature => {
+      const features: Record<string, any> = {};
+      featuresData?.forEach((feature: any) => {
         features[feature.feature_key] = feature;
       });
 
       // Build integration map
-      const integrations: Record<string, OrganizationIntegration> = {};
-      integrationsData?.forEach(integration => {
+      const integrations: Record<string, any> = {};
+      integrationsData?.forEach((integration: any) => {
         integrations[integration.integration_key] = integration;
       });
 

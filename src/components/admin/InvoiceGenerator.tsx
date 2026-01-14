@@ -12,6 +12,7 @@ import {
   Trash2,
   Printer
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface InvoiceItem {
   id: string;
@@ -923,73 +924,128 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
     }
   };
 
-  const handleSaveDraft = () => {
-    const invoiceData = {
-      ...invoice,
-      status: 'draft',
-      lastModified: new Date().toISOString()
-    };
-    
-    // Save to localStorage for demo (in production, save to database)
-    localStorage.setItem(`invoice_${workOrderId}`, JSON.stringify(invoiceData));
-    setInvoiceStatus('draft');
-    onInvoiceSaved?.(invoiceData);
-    
-    alert('Invoice draft saved successfully!');
+  const handleSaveDraft = async () => {
+    try {
+      const invoiceData = {
+        work_order_id: workOrderId,
+        invoice_number: invoice.invoiceNumber,
+        subtotal: invoice.subtotal,
+        tax_rate: invoice.taxRate,
+        tax_amount: invoice.taxAmount,
+        total_amount: invoice.total,
+        paid: false,
+        notes: 'Draft invoice'
+      };
+
+      const { data, error } = await supabase
+        .from('invoices')
+        .upsert(invoiceData, { 
+          onConflict: 'work_order_id',
+          ignoreDuplicates: false 
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving invoice draft:', error);
+        alert('Error saving invoice draft. Please try again.');
+        return;
+      }
+
+      setInvoiceStatus('draft');
+      onInvoiceSaved?.(data);
+      alert('Invoice draft saved successfully!');
+    } catch (error) {
+      console.error('Error saving invoice draft:', error);
+      alert('Error saving invoice draft. Please try again.');
+    }
   };
 
-  const handleFinalizeInvoice = () => {
+  const handleFinalizeInvoice = async () => {
     if (invoiceStatus === 'finalized') {
       alert('This invoice has already been finalized. No further changes can be made.');
       return;
     }
-    
-    const finalizedInvoice = {
-      ...invoice,
-      status: 'finalized',
-      finalizedAt: new Date().toISOString(),
-      lastModified: new Date().toISOString()
-    };
-    
-    localStorage.setItem(`invoice_${workOrderId}`, JSON.stringify(finalizedInvoice));
-    setInvoiceStatus('finalized');
-    onInvoiceSaved?.(finalizedInvoice);
-    
-    // Auto-close the work order when invoice is finalized
-    if (workOrderData?.id) {
-      // In production, this would update the work order status in the database
-      const updatedWorkOrder = {
-        ...workOrderData,
-        status: 'completed',
-        actual_completion: new Date().toISOString()
+
+    try {
+      const invoiceData = {
+        work_order_id: workOrderId,
+        invoice_number: invoice.invoiceNumber,
+        subtotal: invoice.subtotal,
+        tax_rate: invoice.taxRate,
+        tax_amount: invoice.taxAmount,
+        total_amount: invoice.total,
+        paid: false,
+        notes: 'Finalized invoice'
       };
-      
-      // Save updated work order status
-      localStorage.setItem(`work_order_${workOrderData.id}`, JSON.stringify(updatedWorkOrder));
-      
-      console.log('Work order automatically closed:', updatedWorkOrder);
+
+      const { data: invoiceResult, error: invoiceError } = await supabase
+        .from('invoices')
+        .upsert(invoiceData, { 
+          onConflict: 'work_order_id',
+          ignoreDuplicates: false 
+        })
+        .select()
+        .single();
+
+      if (invoiceError) {
+        console.error('Error finalizing invoice:', invoiceError);
+        alert('Error finalizing invoice. Please try again.');
+        return;
+      }
+
+      // Update work order status to completed
+      if (workOrderData?.id) {
+        const { error: workOrderError } = await supabase
+          .from('work_orders')
+          .update({
+            status: 'completed',
+            actual_completion: new Date().toISOString()
+          })
+          .eq('id', workOrderData.id);
+
+        if (workOrderError) {
+          console.error('Error updating work order:', workOrderError);
+        }
+      }
+
+      setInvoiceStatus('finalized');
+      onInvoiceSaved?.(invoiceResult);
+      alert('Invoice finalized and work order completed! No further changes can be made to this invoice.');
+    } catch (error) {
+      console.error('Error finalizing invoice:', error);
+      alert('Error finalizing invoice. Please try again.');
     }
-    
-    alert('Invoice finalized and work order completed! No further changes can be made to this invoice.');
   };
 
-  const handleSendInvoice = () => {
+  const handleSendInvoice = async () => {
     if (invoiceStatus !== 'finalized') {
       alert('Please finalize the invoice before sending.');
       return;
     }
-    
-    const sentInvoice = {
-      ...invoice,
-      status: 'sent',
-      sentAt: new Date().toISOString()
-    };
-    
-    localStorage.setItem(`invoice_${workOrderId}`, JSON.stringify(sentInvoice));
-    setInvoiceStatus('sent');
-    onInvoiceSaved?.(sentInvoice);
-    
-    alert(`Invoice ${invoice.invoiceNumber} sent to ${invoice.customerEmail}!`);
+
+    try {
+      // Mark invoice as sent in database
+      const { data, error } = await supabase
+        .from('invoices')
+        .update({ notes: 'Invoice sent to customer' })
+        .eq('work_order_id', workOrderId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating invoice:', error);
+        alert('Error sending invoice. Please try again.');
+        return;
+      }
+
+      setInvoiceStatus('sent');
+      onInvoiceSaved?.(data);
+      alert(`Invoice ${invoice.invoiceNumber} sent to ${invoice.customerEmail}!`);
+    } catch (error) {
+      console.error('Error sending invoice:', error);
+      alert('Error sending invoice. Please try again.');
+    }
   };
 
   return (

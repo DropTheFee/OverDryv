@@ -16,6 +16,7 @@ import {
   Package,
   Search
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import InvoiceGenerator from './InvoiceGenerator';
 
 interface WorkOrderDetailProps {
@@ -72,93 +73,85 @@ const WorkOrderDetail: React.FC<WorkOrderDetailProps> = ({
   }, [workOrderId]);
 
   const checkForExistingInvoice = async () => {
-    // In production, this would check if an invoice already exists for this work order
-    // For now, simulate checking
-    const hasInvoice = localStorage.getItem(`invoice_${workOrderId}`);
-    if (hasInvoice) {
-      setExistingInvoice(JSON.parse(hasInvoice));
+    try {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('work_order_id', workOrderId)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking for invoice:', error);
+        return;
+      }
+
+      if (data) {
+        setExistingInvoice(data);
+      }
+    } catch (error) {
+      console.error('Error checking for invoice:', error);
     }
   };
   const fetchWorkOrderDetail = async () => {
-    // Mock data for demonstration
-    const mockWorkOrder = {
-      id: workOrderId,
-      work_order_number: 'WO-001',
-      status: 'in_progress',
-      priority: 'normal',
-      service_type: 'Oil Change & Inspection',
-      description: 'Customer reports engine noise and requests full inspection. Vehicle due for regular maintenance.',
-      estimated_completion: '2025-01-15T14:00:00',
-      total_amount: 75.99,
-      created_at: '2025-01-15T08:30:00',
-      customer: {
-        first_name: 'John',
-        last_name: 'Smith',
-        email: 'john.smith@email.com',
-        phone: '(555) 123-4567'
-      },
-      vehicle: {
-        year: 2022,
-        make: 'Toyota',
-        model: 'Camry',
-        color: 'Silver',
-        license_plate: 'ABC-1234',
-        mileage: 45200,
-        vin: '1HGBH41JXMN109186'
-      },
-      technician: {
-        first_name: 'Mike',
-        last_name: 'Johnson'
+    setLoading(true);
+    try {
+      // Fetch work order with related data
+      const { data: workOrderData, error: workOrderError } = await supabase
+        .from('work_orders')
+        .select(`
+          *,
+          customer:customer_id (id, first_name, last_name, email, phone),
+          vehicle:vehicle_id (id, year, make, model, color, license_plate, mileage, vin),
+          technician:technician_id (id, first_name, last_name)
+        `)
+        .eq('id', workOrderId)
+        .single();
+      
+      if (workOrderError) {
+        console.error('Error fetching work order:', workOrderError);
+        return;
       }
-    };
-
-    const mockPhotos = [
-      {
-        id: 1,
-        url: 'https://images.pexels.com/photos/3806288/pexels-photo-3806288.jpeg?auto=compress&cs=tinysrgb&w=400',
-        category: 'before',
-        description: 'Engine bay before service',
-        created_at: '2025-01-15T08:45:00'
-      },
-      {
-        id: 2,
-        url: 'https://images.pexels.com/photos/3807386/pexels-photo-3807386.jpeg?auto=compress&cs=tinysrgb&w=400',
-        category: 'during',
-        description: 'Oil change in progress',
-        created_at: '2025-01-15T10:30:00'
+      
+      // Fetch photos for this work order
+      const { data: photosData, error: photosError } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('work_order_id', workOrderId)
+        .order('created_at', { ascending: true });
+      
+      if (photosError) {
+        console.error('Error fetching photos:', photosError);
       }
-    ];
-
-    const mockServiceItems = [
-      {
-        id: '1',
-        type: 'labor' as const,
-        description: 'Oil Change Service',
-        quantity: 1,
-        unitPrice: 45.99,
-        total: 45.99
-      },
-      {
-        id: '2',
-        type: 'part' as const,
-        description: 'Oil Filter',
-        quantity: 1,
-        unitPrice: 12.99,
-        total: 12.99
-      },
-      {
-        id: '3',
-        type: 'part' as const,
-        description: 'Motor Oil (5W-30)',
-        quantity: 5,
-        unitPrice: 3.50,
-        total: 17.50
+      
+      // Fetch service items for this work order
+      const { data: serviceItemsData, error: serviceItemsError } = await supabase
+        .from('service_items')
+        .select('*')
+        .eq('work_order_id', workOrderId)
+        .order('created_at', { ascending: true });
+      
+      if (serviceItemsError) {
+        console.error('Error fetching service items:', serviceItemsError);
       }
-    ];
-    setWorkOrder(mockWorkOrder);
-    setPhotos(mockPhotos);
-    setServiceItems(mockServiceItems);
-    setLoading(false);
+      
+      setWorkOrder(workOrderData);
+      setPhotos(photosData || []);
+      
+      // Convert service items to match local state format
+      const formattedServiceItems = (serviceItemsData || []).map(item => ({
+        id: item.id,
+        type: item.item_type,
+        description: item.description,
+        quantity: parseFloat(item.quantity),
+        unitPrice: parseFloat(item.unit_price),
+        total: parseFloat(item.total_price || (item.quantity * item.unit_price))
+      }));
+      setServiceItems(formattedServiceItems);
+    } catch (error) {
+      console.error('Error fetching work order detail:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchInventoryItems = async () => {
@@ -295,12 +288,63 @@ const WorkOrderDetail: React.FC<WorkOrderDetailProps> = ({
     setWorkOrder(prev => ({ ...prev, total_amount: newTotal }));
   };
 
-  const handleSave = () => {
-    // In production, this would save to the database
-    console.log('Saving work order:', workOrder);
-    console.log('Saving service items:', serviceItems);
-    setEditing(false);
-    onUpdate?.();
+  const handleSave = async () => {
+    try {
+      // Update work order in database
+      const { error: workOrderError } = await supabase
+        .from('work_orders')
+        .update({
+          status: workOrder.status,
+          priority: workOrder.priority,
+          service_type: workOrder.service_type,
+          description: workOrder.description,
+          estimated_completion: workOrder.estimated_completion,
+          technician_id: workOrder.technician_id,
+          total_amount: workOrder.total_amount,
+          notes: workOrder.notes,
+        })
+        .eq('id', workOrderId);
+      
+      if (workOrderError) {
+        console.error('Error updating work order:', workOrderError);
+        alert('Failed to save work order. Please try again.');
+        return;
+      }
+      
+      // Delete existing service items and insert new ones
+      // This is simpler than trying to diff and update
+      await supabase
+        .from('service_items')
+        .delete()
+        .eq('work_order_id', workOrderId);
+      
+      if (serviceItems.length > 0) {
+        const { error: serviceItemsError } = await supabase
+          .from('service_items')
+          .insert(
+            serviceItems.map(item => ({
+              work_order_id: workOrderId,
+              item_type: item.type,
+              description: item.description,
+              quantity: item.quantity,
+              unit_price: item.unitPrice,
+            }))
+          );
+        
+        if (serviceItemsError) {
+          console.error('Error saving service items:', serviceItemsError);
+          alert('Failed to save service items. Please try again.');
+          return;
+        }
+      }
+      
+      console.log('Work order saved successfully');
+      setEditing(false);
+      onUpdate?.();
+    } catch (error) {
+      console.error('Error saving work order:', error);
+      alert('Failed to save work order. Please try again.');
+    }
   };
 
   const getStatusColor = (status: string) => {
