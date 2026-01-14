@@ -30,7 +30,6 @@ INSERT INTO organizations (
   now(),
   now()
 ) ON CONFLICT (subdomain) DO UPDATE SET
-  id = EXCLUDED.id,
   name = EXCLUDED.name,
   legal_name = EXCLUDED.legal_name,
   billing_email = EXCLUDED.billing_email,
@@ -39,8 +38,7 @@ INSERT INTO organizations (
   monthly_price = EXCLUDED.monthly_price,
   user_limit = EXCLUDED.user_limit,
   is_founder = EXCLUDED.is_founder,
-  updated_at = now()
-RETURNING id;
+  updated_at = now();
 
 -- Update existing demo user to link to this organization
 UPDATE profiles 
