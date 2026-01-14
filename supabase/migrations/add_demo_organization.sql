@@ -2,10 +2,7 @@
 -- Add Demo Organization with Subdomain
 -- =====================================================
 
--- Remove any existing demo organization first (to ensure clean state)
-DELETE FROM organizations WHERE subdomain = 'demo';
-
--- Insert demo organization (idempotent - safe to run multiple times)
+-- Upsert demo organization using subdomain as conflict target
 INSERT INTO organizations (
   id,
   subdomain,
@@ -32,8 +29,8 @@ INSERT INTO organizations (
   false,
   now(),
   now()
-) ON CONFLICT (id) DO UPDATE SET
-  subdomain = EXCLUDED.subdomain,
+) ON CONFLICT (subdomain) DO UPDATE SET
+  id = EXCLUDED.id,
   name = EXCLUDED.name,
   legal_name = EXCLUDED.legal_name,
   billing_email = EXCLUDED.billing_email,
@@ -42,35 +39,42 @@ INSERT INTO organizations (
   monthly_price = EXCLUDED.monthly_price,
   user_limit = EXCLUDED.user_limit,
   is_founder = EXCLUDED.is_founder,
-  updated_at = now();
+  updated_at = now()
+RETURNING id;
 
 -- Update existing demo user to link to this organization
 UPDATE profiles 
-SET organization_id = '00000000-0000-0000-0000-000000000001'::uuid
+SET organization_id = (SELECT id FROM organizations WHERE subdomain = 'demo')
 WHERE email = 'demo@overdryv.io';
 
 -- Initialize features for demo organization (Professional tier)
 INSERT INTO organization_features (organization_id, feature_key, enabled, enabled_at)
-VALUES 
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'customer_management', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'vehicle_history', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'basic_invoicing', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'appointment_scheduling', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'email_support', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'mobile_app_access', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'basic_reporting', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'customer_portal', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'email_notifications', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'dual_pricing', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'quickbooks_oneway', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'time_keeping', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'inventory_management', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'advanced_reporting', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'photo_uploads', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'digital_vehicle_inspections', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'priority_phone_support', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'customer_appointment_reminders', true, now()),
-  ('00000000-0000-0000-0000-000000000001'::uuid, 'digital_waivers', true, now())
+SELECT 
+  (SELECT id FROM organizations WHERE subdomain = 'demo'),
+  feature_key,
+  true,
+  now()
+FROM (VALUES
+  ('customer_management'),
+  ('vehicle_history'),
+  ('basic_invoicing'),
+  ('appointment_scheduling'),
+  ('email_support'),
+  ('mobile_app_access'),
+  ('basic_reporting'),
+  ('customer_portal'),
+  ('email_notifications'),
+  ('dual_pricing'),
+  ('quickbooks_oneway'),
+  ('time_keeping'),
+  ('inventory_management'),
+  ('advanced_reporting'),
+  ('photo_uploads'),
+  ('digital_vehicle_inspections'),
+  ('priority_phone_support'),
+  ('customer_appointment_reminders'),
+  ('digital_waivers')
+) AS features(feature_key)
 ON CONFLICT (organization_id, feature_key) DO NOTHING;
 
 -- Log the setup
