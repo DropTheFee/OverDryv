@@ -8,6 +8,7 @@ INSERT INTO organizations (
   subdomain,
   name,
   legal_name,
+  billing_email,
   subscription_plan,
   subscription_status,
   monthly_price,
@@ -20,6 +21,7 @@ INSERT INTO organizations (
   'demo',
   'Demo Auto Shop',
   'Demo Auto Shop LLC',
+  'demo@overdryv.io',
   'professional',
   'active',
   197.00,
@@ -29,6 +31,7 @@ INSERT INTO organizations (
   now()
 ) ON CONFLICT (subdomain) DO UPDATE SET
   name = EXCLUDED.name,
+  billing_email = EXCLUDED.billing_email,
   subscription_plan = EXCLUDED.subscription_plan,
   subscription_status = EXCLUDED.subscription_status,
   updated_at = now();
