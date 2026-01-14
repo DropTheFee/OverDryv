@@ -153,8 +153,9 @@ const LoginPage: React.FC = () => {
               type={showPassword ? 'text' : 'password'}
               required
               placeholder="Password"
-              pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':&quot;\\|,.<>\/?`~]).{8,}$"
-              title="Password must contain at least 8 characters with uppercase, lowercase, number, and special character"
+              autoComplete="current-password"
+              minLength={8}
+              title="Password must contain at least 8 characters"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full rounded-lg border border-gray-300 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
