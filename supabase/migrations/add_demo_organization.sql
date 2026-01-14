@@ -46,6 +46,7 @@ SET organization_id = (SELECT id FROM organizations WHERE subdomain = 'demo')
 WHERE email = 'demo@overdryv.io';
 
 -- Initialize features for demo organization (Professional tier)
+-- Note: Excludes features requiring integrations (email_support, email_notifications, photo_uploads, digital_vehicle_inspections)
 INSERT INTO organization_features (organization_id, feature_key, enabled, enabled_at)
 SELECT 
   (SELECT id FROM organizations WHERE subdomain = 'demo'),
@@ -57,18 +58,14 @@ FROM (VALUES
   ('vehicle_history'),
   ('basic_invoicing'),
   ('appointment_scheduling'),
-  ('email_support'),
   ('mobile_app_access'),
   ('basic_reporting'),
   ('customer_portal'),
-  ('email_notifications'),
   ('dual_pricing'),
   ('quickbooks_oneway'),
   ('time_keeping'),
   ('inventory_management'),
   ('advanced_reporting'),
-  ('photo_uploads'),
-  ('digital_vehicle_inspections'),
   ('priority_phone_support'),
   ('customer_appointment_reminders'),
   ('digital_waivers')
