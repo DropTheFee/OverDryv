@@ -2,7 +2,7 @@
 -- Add Demo Organization with Subdomain
 -- =====================================================
 
--- Insert demo organization
+-- Insert demo organization (idempotent - safe to run multiple times)
 INSERT INTO organizations (
   id,
   subdomain,
@@ -29,11 +29,16 @@ INSERT INTO organizations (
   false,
   now(),
   now()
-) ON CONFLICT (subdomain) DO UPDATE SET
+) ON CONFLICT (id) DO UPDATE SET
+  subdomain = EXCLUDED.subdomain,
   name = EXCLUDED.name,
+  legal_name = EXCLUDED.legal_name,
   billing_email = EXCLUDED.billing_email,
   subscription_plan = EXCLUDED.subscription_plan,
   subscription_status = EXCLUDED.subscription_status,
+  monthly_price = EXCLUDED.monthly_price,
+  user_limit = EXCLUDED.user_limit,
+  is_founder = EXCLUDED.is_founder,
   updated_at = now();
 
 -- Update existing demo user to link to this organization
