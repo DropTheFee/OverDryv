@@ -11,11 +11,11 @@ interface Estimate {
   customer_id: string;
   vehicle_id: string;
   status: 'draft' | 'sent' | 'approved' | 'declined' | 'expired';
-  service_type: string;
+  service_type?: string;
   description: string;
   total_amount: number;
   valid_until: string;
-  priority: string;
+  priority?: string;
   created_at: string;
   profiles: {
     first_name: string;
@@ -39,46 +39,49 @@ const EstimatesManagement: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedEstimate, setSelectedEstimate] = useState<Estimate | null>(null);
 
+  const selectEstimates = () =>
+    supabase
+      .from('estimates')
+      .select(
+        '*, profiles!customer_id(first_name, last_name, email), vehicles!vehicle_id(year, make, model, license_plate)'
+      )
+      .order('created_at', { ascending: false });
+
   const refetchEstimates = async () => {
     try {
-      console.log('Fetching estimates...');
-      const { data, error } = await supabase
-        .from('estimates')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+      const { data, error } = await selectEstimates();
       if (error) throw error;
       setEstimates(data || []);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error refetching estimates:', error);
     }
   };
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const fetchData = async () => {
       try {
-        console.log('Fetching estimates...');
-        const { data, error } = await supabase
-          .from('estimates')
-          .select('*')
-          .order('created_at', { ascending: false });
+        const { data, error } = await selectEstimates();
 
         if (!isMounted) return;
-        
         if (error) throw error;
         setEstimates(data || []);
-      } catch (error) {
+      } catch (error: unknown) {
         if (!isMounted) return;
-        console.error('Error:', error);
+        if (error && typeof error === 'object' && 'name' in error && (error as { name: string }).name === 'AbortError') {
+          return;
+        }
+        console.error('Error fetching estimates:', error);
       } finally {
         if (isMounted) setLoading(false);
       }
     };
 
     fetchData();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -98,9 +101,9 @@ const EstimatesManagement: React.FC = () => {
       const search = searchTerm.toLowerCase();
       filtered = filtered.filter(est =>
         est.estimate_number.toLowerCase().includes(search) ||
-        `${est.profiles.first_name} ${est.profiles.last_name}`.toLowerCase().includes(search) ||
-        est.service_type.toLowerCase().includes(search) ||
-        `${est.vehicles.year} ${est.vehicles.make} ${est.vehicles.model}`.toLowerCase().includes(search)
+        `${est.profiles?.first_name ?? ''} ${est.profiles?.last_name ?? ''}`.toLowerCase().includes(search) ||
+        (est.service_type ?? est.description ?? '').toLowerCase().includes(search) ||
+        `${est.vehicles?.year ?? ''} ${est.vehicles?.make ?? ''} ${est.vehicles?.model ?? ''}`.toLowerCase().includes(search)
       );
     }
 
@@ -293,20 +296,20 @@ const EstimatesManagement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {estimate.profiles.first_name} {estimate.profiles.last_name}
+                          {estimate.profiles?.first_name} {estimate.profiles?.last_name}
                         </div>
-                        <div className="text-xs text-gray-500">{estimate.profiles.email}</div>
+                        <div className="text-xs text-gray-500">{estimate.profiles?.email}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
-                          {estimate.vehicles.year} {estimate.vehicles.make} {estimate.vehicles.model}
+                          {estimate.vehicles?.year} {estimate.vehicles?.make} {estimate.vehicles?.model}
                         </div>
-                        <div className="text-xs text-gray-500">{estimate.vehicles.license_plate}</div>
+                        <div className="text-xs text-gray-500">{estimate.vehicles?.license_plate}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{estimate.service_type}</div>
-                        <div className={`text-xs font-medium ${getPriorityColor(estimate.priority)}`}>
-                          {estimate.priority.toUpperCase()}
+                        <div className="text-sm text-gray-900">{estimate.service_type ?? estimate.description}</div>
+                        <div className={`text-xs font-medium ${getPriorityColor(estimate.priority ?? '')}`}>
+                          {(estimate.priority ?? 'normal').toUpperCase()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

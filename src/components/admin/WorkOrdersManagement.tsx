@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Filter, Eye, Edit, Clock, AlertTriangle, DollarSign, TrendingUp } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -15,40 +15,47 @@ const WorkOrdersManagement: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-
-  useEffect(() => {
-    fetchWorkOrders();
-  }, []);
+  const mountedRef = useRef(true);
 
   const fetchWorkOrders = async () => {
     setLoading(true);
     try {
-      // Fetch work orders from database with customer and vehicle details
       const { data, error } = await supabase
         .from('work_orders')
         .select(`
           *,
-          customer:customer_id (id, first_name, last_name, email),
-          vehicle:vehicle_id (id, year, make, model, vin, license_plate),
-          technician:technician_id (id, first_name, last_name)
+          customer:profiles!customer_id(id, first_name, last_name, email),
+          vehicle:vehicles!vehicle_id(id, year, make, model, vin, license_plate),
+          technician:profiles!technician_id(id, first_name, last_name)
         `)
         .order('created_at', { ascending: false });
-      
+
+      if (!mountedRef.current) return;
       if (error) {
         console.error('Error fetching work orders:', error);
         setWorkOrders([]);
         return;
       }
-      
       setWorkOrders(data || []);
-    } catch (error) {
+    } catch (error: unknown) {
+      if (!mountedRef.current) return;
+      if (error && typeof error === 'object' && 'name' in error && (error as { name: string }).name === 'AbortError') {
+        return;
+      }
       console.error('Error fetching work orders:', error);
       setWorkOrders([]);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    fetchWorkOrders();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'text-yellow-700 bg-yellow-100 border-yellow-200';
@@ -79,14 +86,16 @@ const WorkOrdersManagement: React.FC = () => {
     fetchWorkOrders();
   };
   const filteredOrders = workOrders.filter(order => {
-    const matchesSearch = 
-      order.work_order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${order.customer.first_name} ${order.customer.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.service_type.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const customerName = order.customer ? `${order.customer.first_name} ${order.customer.last_name}` : '';
+    const vehicleDesc = order.vehicle ? `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}` : '';
+    const matchesSearch =
+      (order.work_order_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicleDesc.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.service_type || '').toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -232,10 +241,10 @@ const WorkOrdersManagement: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <p className="font-medium text-gray-900">
-                          {order.customer.first_name} {order.customer.last_name}
+                          {order.customer?.first_name} {order.customer?.last_name}
                         </p>
                         <p className="text-sm text-gray-600">
-                          {order.vehicle.year} {order.vehicle.make} {order.vehicle.model}
+                          {order.vehicle?.year} {order.vehicle?.make} {order.vehicle?.model}
                         </p>
                       </div>
                     </td>
