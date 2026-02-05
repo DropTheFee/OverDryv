@@ -61,6 +61,13 @@ const EstimatesManagement: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
     console.log('[Estimates] mounted');
+    const timeoutId = window.setTimeout(() => {
+      if (isMounted) {
+        console.warn('[Estimates] fetch timed out');
+        setErrorMessage('Estimates request timed out. Check network connectivity.');
+        setLoading(false);
+      }
+    }, 10000);
 
     const fetchData = async () => {
       try {
@@ -80,6 +87,7 @@ const EstimatesManagement: React.FC = () => {
           setErrorMessage('Unable to load estimates. Check console for details.');
         }
       } finally {
+        window.clearTimeout(timeoutId);
         if (isMounted) setLoading(false);
       }
     };
@@ -87,6 +95,7 @@ const EstimatesManagement: React.FC = () => {
     fetchData();
     return () => {
       console.log('[Estimates] unmounted');
+      window.clearTimeout(timeoutId);
       isMounted = false;
     };
   }, []);
