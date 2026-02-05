@@ -34,6 +34,7 @@ const EstimatesManagement: React.FC = () => {
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [filteredEstimates, setFilteredEstimates] = useState<Estimate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -59,20 +60,24 @@ const EstimatesManagement: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
+    console.log('[Estimates] mounted');
 
     const fetchData = async () => {
       try {
+        console.log('[Estimates] fetching...');
         const { data, error } = await selectEstimates();
 
         if (!isMounted) return;
         if (error) throw error;
         setEstimates(data || []);
+        setErrorMessage(null);
       } catch (error: unknown) {
         if (!isMounted) return;
         if (error && typeof error === 'object' && 'name' in error && (error as { name: string }).name === 'AbortError') {
           // Ignore aborted requests, but allow finally to clear loading.
         } else {
           console.error('Error fetching estimates:', error);
+          setErrorMessage('Unable to load estimates. Check console for details.');
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -81,6 +86,7 @@ const EstimatesManagement: React.FC = () => {
 
     fetchData();
     return () => {
+      console.log('[Estimates] unmounted');
       isMounted = false;
     };
   }, []);
@@ -156,6 +162,13 @@ const EstimatesManagement: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  if (errorMessage) {
+    return (
+      <div className="flex items-center justify-center h-64 text-red-600">
+        {errorMessage}
       </div>
     );
   }
