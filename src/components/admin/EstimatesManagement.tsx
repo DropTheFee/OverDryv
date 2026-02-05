@@ -39,40 +39,51 @@ const EstimatesManagement: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedEstimate, setSelectedEstimate] = useState<Estimate | null>(null);
 
+  const refetchEstimates = async () => {
+    try {
+      console.log('Fetching estimates...');
+      const { data, error } = await supabase
+        .from('estimates')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setEstimates(data || []);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
   useEffect(() => {
-    fetchEstimates();
+    let isMounted = true;
+    
+    const fetchData = async () => {
+      try {
+        console.log('Fetching estimates...');
+        const { data, error } = await supabase
+          .from('estimates')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!isMounted) return;
+        
+        if (error) throw error;
+        setEstimates(data || []);
+      } catch (error) {
+        if (!isMounted) return;
+        console.error('Error:', error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchData();
+    return () => { isMounted = false; };
   }, []);
 
   useEffect(() => {
     filterEstimates();
   }, [estimates, searchTerm, statusFilter]);
-
-  const fetchEstimates = async () => {
-    try {
-      console.log('Fetching estimates...');
-      const { data, error } = await supabase
-        .from('estimates')
-        .select(`
-          *,
-          profiles:customer_id (first_name, last_name, email),
-          vehicles:vehicle_id (year, make, model, license_plate)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-      
-      console.log('Fetched estimates:', data);
-      setEstimates(data || []);
-    } catch (error) {
-      console.error('Error fetching estimates:', error);
-      alert('Failed to load estimates. Please check console for details.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filterEstimates = () => {
     let filtered = [...estimates];
@@ -151,7 +162,7 @@ const EstimatesManagement: React.FC = () => {
         estimate={selectedEstimate}
         onClose={() => {
           setSelectedEstimate(null);
-          fetchEstimates();
+          refetchEstimates();
         }}
       />
     );
@@ -333,7 +344,7 @@ const EstimatesManagement: React.FC = () => {
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
-            fetchEstimates();
+            refetchEstimates();
           }}
         />
       )}
