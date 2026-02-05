@@ -3,6 +3,7 @@
  * 
  * Examples:
  * - demo.overdryv.app → "demo"
+ * - www.overdryv.app → null (root domain)
  * - localhost:5173 → null (development)
  * - overdryv.app → null (main site)
  */
@@ -10,22 +11,21 @@
 export const getSubdomain = (): string | null => {
   const hostname = window.location.hostname;
   
-  // Development environment (localhost)
+  // Local development
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // You can set a test subdomain via URL param for local testing
-    const params = new URLSearchParams(window.location.search);
-    return params.get('org') || null;
+    return new URLSearchParams(window.location.search).get('tenant');
   }
   
-  // Split hostname into parts
+  // Production: extract subdomain
   const parts = hostname.split('.');
   
-  // If there are 3+ parts (e.g., demo.overdryv.app), the first part is the subdomain
-  if (parts.length >= 3) {
+  // Handle www.overdryv.app as root domain (return null)
+  // Handle overdryv.app as root domain (return null)  
+  // Handle demo.overdryv.app as subdomain (return "demo")
+  if (parts.length >= 3 && parts[0] !== 'www') {
     return parts[0];
   }
   
-  // No subdomain (e.g., overdryv.app or www.overdryv.app)
   return null;
 };
 
