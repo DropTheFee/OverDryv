@@ -39,6 +39,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for session tokens in URL (from cross-subdomain redirect)
+    const restoreSession = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (accessToken && refreshToken) {
+        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    };
+    restoreSession();
+    
     // Load organization by subdomain first
     const loadOrganization = async () => {
       const subdomain = getSubdomain();
@@ -151,7 +164,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .single();
           
           if (membership?.organizations?.subdomain) {
-            const targetUrl = `https://${membership.organizations.subdomain}.overdryv.app/dashboard`;
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData.session?.access_token;
+            const refreshToken = sessionData.session?.refresh_token;
+            const targetUrl = `https://${membership.organizations.subdomain}.overdryv.app/dashboard?access_token=${accessToken}&refresh_token=${refreshToken}`;
             console.log('Redirecting to:', targetUrl);
             window.location.href = targetUrl;
             return { error: null };
