@@ -39,6 +39,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for session tokens in URL (from cross-subdomain redirect)
+    const restoreSession = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (accessToken && refreshToken) {
+        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    };
+    restoreSession();
+    
     // Load organization by subdomain first
     const loadOrganization = async () => {
       const subdomain = getSubdomain();
@@ -134,21 +147,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password,
       });
-      
+
       console.log('signIn response - error:', error, 'user:', !!data?.user);
-      
+
       if (!error && data.user) {
-        // Fetch profile immediately so caller can redirect
         await fetchProfile(data.user.id);
+        
+        // Redirect to subdomain if on root domain
+        const subdomain = getSubdomain();
+        if (!subdomain) {
+          console.log('On root domain, looking up user org...');
+          const { data: membership } = await supabase
+            .from('organization_members')
+            .select('organizations(subdomain)')
+            .eq('user_id', data.user.id)
+            .single();
+          
+          if (membership?.organizations?.subdomain) {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData.session?.access_token;
+            const refreshToken = sessionData.session?.refresh_token;
+            const targetUrl = `https://${membership.organizations.subdomain}.overdryv.app/dashboard?access_token=${accessToken}&refresh_token=${refreshToken}`;
+            console.log('Redirecting to:', targetUrl);
+            window.location.href = targetUrl;
+            return { error: null };
+          }
+        }
+        
+        navigate('/dashboard');
         return { error: null };
       }
-      
+
       return { error };
     } catch (err) {
       console.error('signIn exception:', err);
       return { error: err };
     }
   };
+
 
   const signUp = async (email: string, password: string, userData: any) => {
     const { data, error } = await supabase.auth.signUp({
