@@ -49,24 +49,15 @@ const EstimatesManagement: React.FC = () => {
       .order('created_at', { ascending: false });
 
   const fetchEstimatesDirect = async () => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Missing Supabase env vars');
-    }
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
-    const url = `${supabaseUrl}/rest/v1/estimates?select=*,profiles!customer_id(first_name,last_name,email),vehicles!vehicle_id(year,make,model,license_plate)&order=created_at.desc`;
-    const res = await fetch(url, {
+    const res = await fetch('/api/estimates', {
       method: 'GET',
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${accessToken ?? supabaseAnonKey}`,
-      },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`REST error ${res.status}: ${text}`);
+      throw new Error(`API error ${res.status}: ${text}`);
     }
     return (await res.json()) as Estimate[];
   };
@@ -95,13 +86,6 @@ const EstimatesManagement: React.FC = () => {
     const fetchData = async () => {
       try {
         console.log('[Estimates] fetching...');
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        console.log('[Estimates] supabase env', {
-          hasUrl: !!supabaseUrl,
-          hasKey: !!supabaseAnonKey,
-        });
-
         // Direct REST fetch to bypass any client hang.
         const data = await fetchEstimatesDirect();
         if (!isMounted) return;
