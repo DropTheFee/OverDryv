@@ -40,39 +40,40 @@ const EstimatesManagement: React.FC = () => {
   const [selectedEstimate, setSelectedEstimate] = useState<Estimate | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+    
+    const fetchEstimates = async () => {
+      try {
+        console.log('Fetching estimates...');
+        const { data, error } = await supabase
+          .from('estimates')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!isMounted) return;
+        
+        console.log('Query completed - data:', data, 'error:', error);
+
+        if (error) throw error;
+        setEstimates(data || []);
+      } catch (error) {
+        if (!isMounted) return;
+        console.error('Error fetching estimates:', error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
     fetchEstimates();
+    
+    return () => { isMounted = false; };
   }, []);
 
   useEffect(() => {
     filterEstimates();
   }, [estimates, searchTerm, statusFilter]);
 
-  const fetchEstimates = async () => {
-    try {
-      console.log('Fetching estimates...');
-      
-      // Simplified query without joins
-      const { data, error } = await supabase
-        .from('estimates')
-        .select('*')
-        .order('created_at', { ascending: false });
 
-      console.log('Query completed - data:', data, 'error:', error);
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-      
-      console.log('Fetched estimates:', data);
-      setEstimates(data || []);
-    } catch (error) {
-      console.error('Error fetching estimates:', error);
-      alert('Failed to load estimates. Please check console for details.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filterEstimates = () => {
     let filtered = [...estimates];
