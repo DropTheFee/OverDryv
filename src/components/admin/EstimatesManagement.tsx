@@ -48,6 +48,29 @@ const EstimatesManagement: React.FC = () => {
       )
       .order('created_at', { ascending: false });
 
+  const fetchEstimatesDirect = async () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing Supabase env vars');
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    const url = `${supabaseUrl}/rest/v1/estimates?select=*,profiles!customer_id(first_name,last_name,email),vehicles!vehicle_id(year,make,model,license_plate)&order=created_at.desc`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${accessToken ?? supabaseAnonKey}`,
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`REST error ${res.status}: ${text}`);
+    }
+    return (await res.json()) as Estimate[];
+  };
+
   const refetchEstimates = async () => {
     try {
       const { data, error } = await selectEstimates();
@@ -79,33 +102,9 @@ const EstimatesManagement: React.FC = () => {
           hasKey: !!supabaseAnonKey,
         });
 
-        // Fire-and-forget probe to verify network path to Supabase REST.
-        void (async () => {
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const accessToken = session?.access_token;
-            if (!supabaseUrl || !supabaseAnonKey) {
-              console.warn('[Estimates] probe skipped: missing env');
-              return;
-            }
-            const probeUrl = `${supabaseUrl}/rest/v1/estimates?select=id&limit=1`;
-            const probeRes = await fetch(probeUrl, {
-              method: 'GET',
-              headers: {
-                apikey: supabaseAnonKey,
-                Authorization: `Bearer ${accessToken ?? supabaseAnonKey}`,
-              },
-            });
-            console.log('[Estimates] probe status', probeRes.status);
-          } catch (probeError) {
-            console.warn('[Estimates] probe error', probeError);
-          }
-        })();
-
-        const { data, error } = await selectEstimates();
-
+        // Direct REST fetch to bypass any client hang.
+        const data = await fetchEstimatesDirect();
         if (!isMounted) return;
-        if (error) throw error;
         setEstimates(data || []);
         setErrorMessage(null);
       } catch (error: unknown) {
