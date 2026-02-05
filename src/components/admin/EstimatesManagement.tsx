@@ -70,9 +70,10 @@ const EstimatesManagement: React.FC = () => {
       } catch (error: unknown) {
         if (!isMounted) return;
         if (error && typeof error === 'object' && 'name' in error && (error as { name: string }).name === 'AbortError') {
-          return;
+          // Ignore aborted requests, but allow finally to clear loading.
+        } else {
+          console.error('Error fetching estimates:', error);
         }
-        console.error('Error fetching estimates:', error);
       } finally {
         if (isMounted) setLoading(false);
       }

@@ -67,9 +67,10 @@ const AdminOverview: React.FC = () => {
       } catch (error: unknown) {
         if (!mountedRef.current) return;
         if (error && typeof error === 'object' && 'name' in error && (error as { name: string }).name === 'AbortError') {
-          return;
+          // Ignore aborted requests, but allow finally to clear loading.
+        } else {
+          console.error('Error fetching overview data:', error);
         }
-        console.error('Error fetching overview data:', error);
       } finally {
         if (mountedRef.current) setLoading(false);
       }
