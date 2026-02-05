@@ -50,14 +50,14 @@ const EstimatesManagement: React.FC = () => {
   const fetchEstimates = async () => {
     try {
       console.log('Fetching estimates...');
+      
+      // Simplified query without joins
       const { data, error } = await supabase
         .from('estimates')
-        .select(`
-          *,
-          profiles:customer_id (first_name, last_name, email),
-          vehicles:vehicle_id (year, make, model, license_plate)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
+
+      console.log('Query completed - data:', data, 'error:', error);
 
       if (error) {
         console.error('Supabase error:', error);
