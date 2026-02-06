@@ -15,8 +15,8 @@ function App() {
   const onRootDomain = isRootDomain();
 
   return (
-    <TenantProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <TenantProvider>
         <Layout>
           <Routes>
             {onRootDomain ? (
@@ -39,8 +39,8 @@ function App() {
             )}
           </Routes>
         </Layout>
-      </AuthProvider>
-    </TenantProvider>
+      </TenantProvider>
+    </AuthProvider>
   );
 }
 

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { getSubdomain } from '../utils/domainHelper';
 import type { FeatureKey, IntegrationKey, SubscriptionPlan, SubscriptionStatus } from '../config/featureConfig';
 import type { Database } from '../types/database';
 
@@ -22,7 +23,8 @@ interface TenantContextType {
   tenant: TenantConfig | null;
   loading: boolean;
   
-  // Organization info
+  // Organization info (available even before auth for login page branding)
+  organization: Organization | null;
   organizationId: string | null;
   organizationName: string | null;
   subscriptionPlan: SubscriptionPlan | null;
@@ -58,52 +60,78 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 // =====================================================
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { profile, organization: authOrganization, loading: authLoading } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [tenant, setTenant] = useState<TenantConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Load tenant configuration
   const loadTenantConfig = async () => {
-    // Use organization from AuthContext if available (subdomain-based)
-    // Fall back to profile.organization_id for backwards compatibility
-    const organizationId = authOrganization?.id || profile?.organization_id;
-    
-    if (!organizationId) {
-      setTenant(null);
-      setLoading(false);
-      return;
-    }
-
     try {
-      // Load organization (prefer authOrganization if available)
-      let organization = authOrganization;
+      // First, try to get organization from subdomain (for login page branding)
+      const subdomain = getSubdomain();
+      let organization: Organization | null = null;
       
-      if (!organization) {
+      if (subdomain) {
+        // Load organization by subdomain (public access for login page)
         const { data: orgData, error: orgError } = await supabase
           .from('organizations')
           .select('*')
-          .eq('id', organizationId)
+          .eq('subdomain', subdomain)
           .single();
 
-        if (orgError) throw orgError;
-        organization = orgData;
+        if (!orgError && orgData) {
+          organization = orgData;
+        }
+      }
+      
+      // If user is authenticated, prefer their profile's organization
+      if (profile?.organization_id) {
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('id', profile.organization_id)
+          .single();
+
+        if (!orgError && orgData) {
+          organization = orgData;
+        }
       }
 
-      // Load features
-      const { data: featuresData, error: featuresError } = await supabase
-        .from('organization_features')
-        .select('*')
-        .eq('organization_id', organizationId);
+      if (!organization) {
+        setTenant({
+          organization: null,
+          features: {} as Record<FeatureKey, OrganizationFeature | undefined>,
+          integrations: {} as Record<IntegrationKey, OrganizationIntegration | undefined>
+        });
+        setLoading(false);
+        return;
+      }
 
-      if (featuresError) throw featuresError;
+      // Load features (only if authenticated)
+      let featuresData: OrganizationFeature[] = [];
+      if (profile?.organization_id) {
+        const { data, error: featuresError } = await supabase
+          .from('organization_features')
+          .select('*')
+          .eq('organization_id', organization.id);
 
-      // Load integrations
-      const { data: integrationsData, error: integrationsError } = await supabase
-        .from('organization_integrations')
-        .select('*')
-        .eq('organization_id', organizationId);
+        if (!featuresError && data) {
+          featuresData = data;
+        }
+      }
 
-      if (integrationsError) throw integrationsError;
+      // Load integrations (only if authenticated)
+      let integrationsData: OrganizationIntegration[] = [];
+      if (profile?.organization_id) {
+        const { data, error: integrationsError } = await supabase
+          .from('organization_integrations')
+          .select('*')
+          .eq('organization_id', organization.id);
+
+        if (!integrationsError && data) {
+          integrationsData = data;
+        }
+      }
 
       // Build feature map
       const features: Record<string, any> = {};
@@ -124,23 +152,28 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     } catch (error) {
       console.error('Error loading tenant config:', error);
-      setTenant(null);
+      setTenant({
+        organization: null,
+        features: {} as Record<FeatureKey, OrganizationFeature | undefined>,
+        integrations: {} as Record<IntegrationKey, OrganizationIntegration | undefined>
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Load on mount and when profile or organization changes
+  // Load on mount and when profile changes
   useEffect(() => {
     if (!authLoading) {
       loadTenantConfig();
     }
-  }, [profile?.organization_id, authOrganization?.id, authLoading]);
+  }, [profile?.organization_id, authLoading]);
 
-  // Subscribe to real-time updates
+  // Subscribe to real-time updates (only if authenticated)
   useEffect(() => {
-    const organizationId = authOrganization?.id || profile?.organization_id;
-    if (!organizationId) return;
+    if (!profile?.organization_id) return;
+
+    const organizationId = profile.organization_id;
 
     // Subscribe to organization changes
     const orgChannel = supabase
@@ -198,7 +231,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       supabase.removeChannel(featuresChannel);
       supabase.removeChannel(integrationsChannel);
     };
-  }, [profile?.organization_id, authOrganization?.id]);
+  }, [profile?.organization_id]);
 
   // Helper: Check if feature is enabled
   const hasFeature = (feature: FeatureKey): boolean => {
@@ -234,6 +267,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     loading,
     
     // Organization info
+    organization: tenant?.organization || null,
     organizationId: tenant?.organization?.id || null,
     organizationName: tenant?.organization?.name || null,
     subscriptionPlan: tenant?.organization?.subscription_plan || null,

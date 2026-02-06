@@ -49,10 +49,14 @@ const TenantLoginPage: React.FC = () => {
     }
   };
 
+  // Show loading only while tenant is loading, not while auth is loading
   if (tenantLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-100 to-primary-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
