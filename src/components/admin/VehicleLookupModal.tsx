@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Car, Search, Loader } from 'lucide-react';
+import { X, Car, Search, Loader, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
 
@@ -11,22 +11,17 @@ interface VehicleLookupModalProps {
 }
 
 interface NHTSAMake {
-  Make_ID: number;
-  Make_Name: string;
+  MakeId: number;
+  MakeName: string;
 }
 
 interface NHTSAModel {
-  Make_ID: number;
   Make_Name: string;
-  Model_ID: number;
   Model_Name: string;
 }
 
-interface NHTSADecodeResult {
-  Variable: string;
-  VariableId: number;
-  Value: string | null;
-}
+// Cache makes list at module level so it persists across component remounts
+let cachedMakes: NHTSAMake[] | null = null;
 
 const VehicleLookupModal: React.FC<VehicleLookupModalProps> = ({
   isOpen,
@@ -38,6 +33,8 @@ const VehicleLookupModal: React.FC<VehicleLookupModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [vinDecoding, setVinDecoding] = useState(false);
   const [lookupMethod, setLookupMethod] = useState<'vin' | 'manual'>('vin');
+  const [makesLoading, setMakesLoading] = useState(false);
+  const [makesFailed, setMakesFailed] = useState(false);
   
   // VIN Decode
   const [vin, setVin] = useState('');
@@ -81,15 +78,67 @@ const VehicleLookupModal: React.FC<VehicleLookupModalProps> = ({
   }, [formData.year, formData.make, lookupMethod]);
 
   const fetchMakes = async () => {
+    // Use cached makes if available
+    if (cachedMakes && cachedMakes.length > 0) {
+      console.log('[VehicleLookup] Using cached makes:', cachedMakes.length, 'makes');
+      setMakes(cachedMakes);
+      setMakesFailed(false);
+      return;
+    }
+
+    setMakesLoading(true);
+    setMakesFailed(false);
+    
     try {
-      const response = await fetch(
-        'https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleType/car?format=json'
+      console.log('[VehicleLookup] Fetching makes from NHTSA API...');
+      
+      // Fetch from both passenger car and truck endpoints
+      const [passengerResponse, truckResponse] = await Promise.all([
+        fetch('https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleType/passenger%20car?format=json'),
+        fetch('https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleType/truck?format=json')
+      ]);
+
+      const passengerData = await passengerResponse.json();
+      const truckData = await truckResponse.json();
+
+      console.log('[VehicleLookup] Passenger car makes response:', passengerData);
+      console.log('[VehicleLookup] Truck makes response:', truckData);
+
+      const passengerMakes: NHTSAMake[] = passengerData.Results || [];
+      const truckMakes: NHTSAMake[] = truckData.Results || [];
+
+      console.log('[VehicleLookup] Passenger makes count:', passengerMakes.length);
+      console.log('[VehicleLookup] Truck makes count:', truckMakes.length);
+
+      // Merge both arrays
+      const allMakes = [...passengerMakes, ...truckMakes];
+
+      // Deduplicate by MakeId
+      const uniqueMakesMap = new Map<number, NHTSAMake>();
+      allMakes.forEach(make => {
+        if (!uniqueMakesMap.has(make.MakeId)) {
+          uniqueMakesMap.set(make.MakeId, make);
+        }
+      });
+
+      // Convert to array and sort alphabetically by MakeName
+      const uniqueMakes = Array.from(uniqueMakesMap.values()).sort((a, b) => 
+        a.MakeName.localeCompare(b.MakeName)
       );
-      const data = await response.json();
-      setMakes(data.Results || []);
+
+      console.log('[VehicleLookup] Total unique makes after deduplication:', uniqueMakes.length);
+      console.log('[VehicleLookup] First 10 makes:', uniqueMakes.slice(0, 10).map(m => m.MakeName));
+
+      // Cache the results
+      cachedMakes = uniqueMakes;
+      setMakes(uniqueMakes);
+      setMakesFailed(false);
     } catch (error) {
-      console.error('Error fetching makes:', error);
+      console.error('[VehicleLookup] Error fetching makes:', error);
       setMakes([]);
+      setMakesFailed(true);
+    } finally {
+      setMakesLoading(false);
     }
   };
 
@@ -97,13 +146,19 @@ const VehicleLookupModal: React.FC<VehicleLookupModalProps> = ({
     if (!formData.make || !formData.year) return;
     
     try {
+      console.log(`[VehicleLookup] Fetching models for ${formData.make} ${formData.year}...`);
+      
       const response = await fetch(
         `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(formData.make)}/modelyear/${formData.year}?format=json`
       );
       const data = await response.json();
+      
+      console.log('[VehicleLookup] Models response:', data);
+      console.log('[VehicleLookup] Models count:', data.Results?.length || 0);
+      
       setModels(data.Results || []);
     } catch (error) {
-      console.error('Error fetching models:', error);
+      console.error('[VehicleLookup] Error fetching models:', error);
       setModels([]);
     }
   };
@@ -116,31 +171,38 @@ const VehicleLookupModal: React.FC<VehicleLookupModalProps> = ({
 
     setVinDecoding(true);
     try {
+      console.log(`[VehicleLookup] Decoding VIN: ${vin}`);
+      
       const response = await fetch(
-        `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/${vin}?format=json`
+        `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${vin}?format=json`
       );
       const data = await response.json();
-      const results: NHTSADecodeResult[] = data.Results || [];
-
-      // Extract year, make, model from decoded results
-      const yearResult = results.find(r => r.VariableId === 29);
-      const makeResult = results.find(r => r.VariableId === 26);
-      const modelResult = results.find(r => r.VariableId === 28);
-
-      if (yearResult?.Value && makeResult?.Value && modelResult?.Value) {
+      
+      console.log('[VehicleLookup] VIN decode response:', data);
+      
+      const result = data.Results?.[0];
+      
+      if (result && result.Make && result.Model && result.ModelYear) {
+        console.log('[VehicleLookup] VIN decoded successfully:', {
+          year: result.ModelYear,
+          make: result.Make,
+          model: result.Model
+        });
+        
         setFormData({
           ...formData,
-          year: yearResult.Value,
-          make: makeResult.Value,
-          model: modelResult.Value,
+          year: result.ModelYear,
+          make: result.Make,
+          model: result.Model,
           vin: vin,
         });
         alert('VIN decoded successfully! Please fill in the remaining details.');
       } else {
+        console.warn('[VehicleLookup] VIN decode incomplete:', result);
         alert('Could not decode VIN. Please enter vehicle details manually.');
       }
     } catch (error) {
-      console.error('Error decoding VIN:', error);
+      console.error('[VehicleLookup] Error decoding VIN:', error);
       alert('Failed to decode VIN. Please try again or enter details manually.');
     } finally {
       setVinDecoding(false);
@@ -307,19 +369,48 @@ const VehicleLookupModal: React.FC<VehicleLookupModalProps> = ({
               {formData.year && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Make *</label>
-                  <select
-                    required
-                    value={formData.make}
-                    onChange={(e) => setFormData({ ...formData, make: e.target.value, model: '' })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">Select make</option>
-                    {makes.map(make => (
-                      <option key={make.Make_ID} value={make.Make_Name}>
-                        {make.Make_Name}
-                      </option>
-                    ))}
-                  </select>
+                  
+                  {makesLoading && (
+                    <div className="flex items-center justify-center py-3 text-gray-500">
+                      <Loader className="w-4 h-4 mr-2 animate-spin" />
+                      Loading makes...
+                    </div>
+                  )}
+                  
+                  {!makesLoading && makesFailed && (
+                    <div>
+                      <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-2">
+                        <AlertCircle className="w-4 h-4 text-yellow-600" />
+                        <p className="text-sm text-yellow-800">
+                          Could not load makes from NHTSA. Please enter manually.
+                        </p>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={formData.make}
+                        onChange={(e) => setFormData({ ...formData, make: e.target.value, model: '' })}
+                        placeholder="Enter vehicle make (e.g., Toyota, Ford, Honda)"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                  )}
+                  
+                  {!makesLoading && !makesFailed && (
+                    <select
+                      required
+                      value={formData.make}
+                      onChange={(e) => setFormData({ ...formData, make: e.target.value, model: '' })}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    >
+                      <option value="">Select make</option>
+                      {makes.map(make => (
+                        <option key={make.MakeId} value={make.MakeName}>
+                          {make.MakeName}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
 
@@ -333,8 +424,8 @@ const VehicleLookupModal: React.FC<VehicleLookupModalProps> = ({
                     className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
                     <option value="">Select model</option>
-                    {models.map(model => (
-                      <option key={model.Model_ID} value={model.Model_Name}>
+                    {models.map((model, index) => (
+                      <option key={`${model.Model_Name}-${index}`} value={model.Model_Name}>
                         {model.Model_Name}
                       </option>
                     ))}
