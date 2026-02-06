@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Car, User, Wrench, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { vehicleService } from '../../services/vehicleService';
-import { workOrderService } from '../../services/workOrderService';
+import { useTenant } from '../../contexts/TenantContext';
 import AddCustomerModal from './AddCustomerModal';
 import VehicleLookupModal from './VehicleLookupModal';
 
@@ -17,6 +16,7 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { organizationId } = useTenant();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -45,23 +45,26 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
   ];
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && organizationId) {
       fetchCustomers();
     }
-  }, [isOpen]);
+  }, [isOpen, organizationId]);
 
   useEffect(() => {
-    if (formData.customer_id) {
+    if (formData.customer_id && organizationId) {
       fetchCustomerVehicles(formData.customer_id);
     }
-  }, [formData.customer_id]);
+  }, [formData.customer_id, organizationId]);
 
   const fetchCustomers = async () => {
+    if (!organizationId) return;
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, email')
         .eq('role', 'customer')
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -70,7 +73,6 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
         return;
       }
       
-      // If no customers exist, show a helpful empty state but don't auto-create
       setCustomers(data || []);
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -79,11 +81,14 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
   };
 
   const fetchCustomerVehicles = async (customerId: string) => {
+    if (!organizationId) return;
+    
     try {
       const { data, error } = await supabase
         .from('vehicles')
         .select('*')
         .eq('customer_id', customerId)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -101,21 +106,30 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!organizationId) {
+      alert('Organization not found. Please try again.');
+      return;
+    }
+    
     setLoading(true);
 
     try {
+      // Generate work order number
+      const workOrderNumber = 'WO-' + Date.now().toString().slice(-6);
+      
       // Insert work order into database
       const { data, error } = await supabase
         .from('work_orders')
         .insert([{
+          number: workOrderNumber,
           customer_id: formData.customer_id,
           vehicle_id: formData.vehicle_id,
+          organization_id: organizationId,
           service_type: formData.service_type,
           description: formData.description,
           priority: formData.priority,
           status: 'pending',
           estimated_completion: formData.estimated_completion || new Date(Date.now() + 24*60*60*1000).toISOString(),
-          total_amount: 0,
         }])
         .select();
       
@@ -219,10 +233,12 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, vehicle_id: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">Select a vehicle</option>
+                <option value="">
+                  {vehicles.length === 0 ? 'No vehicles yet - Click "New Vehicle" to add one' : 'Select a vehicle'}
+                </option>
                 {vehicles.map(vehicle => (
                   <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.year} {vehicle.make} {vehicle.model} ({vehicle.license_plate})
+                    {vehicle.year} {vehicle.make} {vehicle.model} {vehicle.license_plate ? `(${vehicle.license_plate})` : ''}
                   </option>
                 ))}
               </select>
@@ -326,8 +342,8 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
         onClose={() => setShowAddCustomer(false)}
         onSuccess={(newCustomer) => {
           setShowAddCustomer(false);
-          fetchCustomers(); // Refresh customer list
-          setFormData({ ...formData, customer_id: newCustomer.id }); // Auto-select new customer
+          fetchCustomers();
+          setFormData({ ...formData, customer_id: newCustomer.id });
         }}
       />
 
@@ -338,8 +354,8 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
         customerId={formData.customer_id}
         onVehicleSelect={(vehicle) => {
           setShowAddVehicle(false);
-          fetchCustomerVehicles(formData.customer_id); // Refresh vehicle list
-          setFormData({ ...formData, vehicle_id: vehicle.id }); // Auto-select new vehicle
+          fetchCustomerVehicles(formData.customer_id);
+          setFormData({ ...formData, vehicle_id: vehicle.id });
         }}
       />
     </div>

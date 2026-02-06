@@ -1,355 +1,441 @@
-import React, { useState } from 'react';
-import { X, Search, Car, User, Eye, Plus, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Car, Search, Loader } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useTenant } from '../../contexts/TenantContext';
 
 interface VehicleLookupModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onVehicleSelected?: (vehicle: any) => void;
+  customerId: string;
+  onVehicleSelect: (vehicle: any) => void;
+}
+
+interface NHTSAMake {
+  Make_ID: number;
+  Make_Name: string;
+}
+
+interface NHTSAModel {
+  Make_ID: number;
+  Make_Name: string;
+  Model_ID: number;
+  Model_Name: string;
+}
+
+interface NHTSADecodeResult {
+  Variable: string;
+  VariableId: number;
+  Value: string | null;
 }
 
 const VehicleLookupModal: React.FC<VehicleLookupModalProps> = ({
   isOpen,
   onClose,
-  onVehicleSelected,
+  customerId,
+  onVehicleSelect,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  const { organizationId } = useTenant();
+  const [loading, setLoading] = useState(false);
+  const [vinDecoding, setVinDecoding] = useState(false);
+  const [lookupMethod, setLookupMethod] = useState<'vin' | 'manual'>('vin');
+  
+  // VIN Decode
+  const [vin, setVin] = useState('');
+  
+  // Manual Selection
+  const [years, setYears] = useState<number[]>([]);
+  const [makes, setMakes] = useState<NHTSAMake[]>([]);
+  const [models, setModels] = useState<NHTSAModel[]>([]);
+  
+  // Form Data
+  const [formData, setFormData] = useState({
+    year: '',
+    make: '',
+    model: '',
+    vin: '',
+    color: '',
+    mileage: '',
+    license_plate: '',
+  });
 
-  // Mock vehicle database for demonstration
-  const vehicleDatabase = [
-    {
-      id: '1',
-      vin: '1HGBH41JXMN109186',
-      make: 'Toyota',
-      model: 'Camry',
-      year: 2022,
-      color: 'Silver',
-      license_plate: 'ABC-1234',
-      mileage: 45200,
-      customer: {
-        id: 'cust1',
-        name: 'John Smith',
-        email: 'john.smith@email.com',
-        phone: '(555) 123-4567'
-      },
-      lastService: '2025-01-15',
-      totalServices: 8,
-      totalSpent: 1250.75,
-      serviceHistory: [
-        { date: '2025-01-15', service: 'Oil Change & Inspection', amount: 75.99 },
-        { date: '2024-10-12', service: 'Brake Pad Replacement', amount: 285.50 },
-        { date: '2024-07-08', service: 'Tire Rotation', amount: 45.00 },
-      ]
-    },
-    {
-      id: '2',
-      vin: '2HGFC2F59GH123456',
-      make: 'Honda',
-      model: 'Civic',
-      year: 2020,
-      color: 'Blue',
-      license_plate: 'XYZ-5678',
-      mileage: 32800,
-      customer: {
-        id: 'cust2',
-        name: 'Sarah Davis',
-        email: 'sarah.davis@email.com',
-        phone: '(555) 234-5678'
-      },
-      lastService: '2025-01-14',
-      totalServices: 5,
-      totalSpent: 890.25,
-      serviceHistory: [
-        { date: '2025-01-14', service: 'Brake Inspection', amount: 89.99 },
-        { date: '2024-09-20', service: 'Oil Change', amount: 45.99 },
-      ]
-    },
-    {
-      id: '3',
-      vin: '1FTEW1EP5GKF12345',
-      make: 'Ford',
-      model: 'F-150',
-      year: 2019,
-      color: 'Black',
-      license_plate: 'DEF-9012',
-      mileage: 78500,
-      customer: {
-        id: 'cust3',
-        name: 'Mike Chen',
-        email: 'mike.chen@email.com',
-        phone: '(555) 345-6789'
-      },
-      lastService: '2024-12-10',
-      totalServices: 12,
-      totalSpent: 2100.50,
-      serviceHistory: [
-        { date: '2024-12-10', service: 'Engine Diagnostics', amount: 150.00 },
-        { date: '2024-08-15', service: 'Transmission Service', amount: 450.00 },
-      ]
-    },
-  ];
+  useEffect(() => {
+    // Generate years from current year down to 1990
+    const currentYear = new Date().getFullYear();
+    const yearList = [];
+    for (let year = currentYear; year >= 1990; year--) {
+      yearList.push(year);
+    }
+    setYears(yearList);
+  }, []);
 
-  const handleSearch = () => {
-    if (!searchTerm.trim()) {
-      setSearchResults([]);
+  useEffect(() => {
+    if (formData.year && lookupMethod === 'manual') {
+      fetchMakes();
+    }
+  }, [formData.year, lookupMethod]);
+
+  useEffect(() => {
+    if (formData.year && formData.make && lookupMethod === 'manual') {
+      fetchModels();
+    }
+  }, [formData.year, formData.make, lookupMethod]);
+
+  const fetchMakes = async () => {
+    try {
+      const response = await fetch(
+        'https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleType/car?format=json'
+      );
+      const data = await response.json();
+      setMakes(data.Results || []);
+    } catch (error) {
+      console.error('Error fetching makes:', error);
+      setMakes([]);
+    }
+  };
+
+  const fetchModels = async () => {
+    if (!formData.make || !formData.year) return;
+    
+    try {
+      const response = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(formData.make)}/modelyear/${formData.year}?format=json`
+      );
+      const data = await response.json();
+      setModels(data.Results || []);
+    } catch (error) {
+      console.error('Error fetching models:', error);
+      setModels([]);
+    }
+  };
+
+  const handleDecodeVin = async () => {
+    if (!vin || vin.length < 17) {
+      alert('Please enter a valid 17-character VIN');
       return;
     }
 
-    setSearching(true);
-    
-    // Simulate API search delay
-    setTimeout(() => {
-      const results = vehicleDatabase.filter(vehicle =>
-        vehicle.vin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        vehicle.license_plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        `${vehicle.year} ${vehicle.make} ${vehicle.model}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        vehicle.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        vehicle.customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        vehicle.customer.phone.includes(searchTerm)
+    setVinDecoding(true);
+    try {
+      const response = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/${vin}?format=json`
       );
-      
-      setSearchResults(results);
-      setSearching(false);
-    }, 500);
+      const data = await response.json();
+      const results: NHTSADecodeResult[] = data.Results || [];
+
+      // Extract year, make, model from decoded results
+      const yearResult = results.find(r => r.VariableId === 29);
+      const makeResult = results.find(r => r.VariableId === 26);
+      const modelResult = results.find(r => r.VariableId === 28);
+
+      if (yearResult?.Value && makeResult?.Value && modelResult?.Value) {
+        setFormData({
+          ...formData,
+          year: yearResult.Value,
+          make: makeResult.Value,
+          model: modelResult.Value,
+          vin: vin,
+        });
+        alert('VIN decoded successfully! Please fill in the remaining details.');
+      } else {
+        alert('Could not decode VIN. Please enter vehicle details manually.');
+      }
+    } catch (error) {
+      console.error('Error decoding VIN:', error);
+      alert('Failed to decode VIN. Please try again or enter details manually.');
+    } finally {
+      setVinDecoding(false);
+    }
   };
 
-  const handleVehicleSelect = (vehicle: any) => {
-    setSelectedVehicle(vehicle);
-    onVehicleSelected?.(vehicle);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!organizationId) {
+      alert('Organization not found. Please try again.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .insert([{
+          customer_id: customerId,
+          organization_id: organizationId,
+          year: parseInt(formData.year),
+          make: formData.make,
+          model: formData.model,
+          vin: formData.vin || null,
+          color: formData.color || null,
+          mileage: formData.mileage ? parseInt(formData.mileage) : null,
+          license_plate: formData.license_plate || null,
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating vehicle:', error);
+        alert('Failed to create vehicle. Please try again.');
+        return;
+      }
+
+      onVehicleSelect(data);
+      resetForm();
+    } catch (error) {
+      console.error('Error creating vehicle:', error);
+      alert('Failed to create vehicle. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getServiceStatus = (lastService: string) => {
-    const daysSince = Math.floor((Date.now() - new Date(lastService).getTime()) / (1000 * 60 * 60 * 24));
-    if (daysSince > 120) return { status: 'overdue', color: 'text-red-600', text: 'Overdue' };
-    if (daysSince > 90) return { status: 'due', color: 'text-orange-600', text: 'Due Soon' };
-    return { status: 'good', color: 'text-green-600', text: 'Up to Date' };
+  const resetForm = () => {
+    setFormData({
+      year: '',
+      make: '',
+      model: '',
+      vin: '',
+      color: '',
+      mileage: '',
+      license_plate: '',
+    });
+    setVin('');
+    setModels([]);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center">
-            <Search className="w-6 h-6 text-blue-600 mr-3" />
-            <h2 className="text-2xl font-bold text-gray-900">Vehicle Lookup</h2>
+            <Car className="w-6 h-6 text-green-600 mr-2" />
+            <h2 className="text-2xl font-bold text-gray-900">Add New Vehicle</h2>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Search */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search by VIN, License Plate, Vehicle, or Customer
-            </label>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Enter VIN, license plate, vehicle info, or customer name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button
-                type="button"
-                onClick={handleSearch}
-                disabled={!searchTerm.trim() || searching}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center"
-              >
-                {searching ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Searching...
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-4 h-4 mr-2" />
-                    Search
-                  </>
-                )}
-              </button>
-            </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Lookup Method Toggle */}
+          <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setLookupMethod('vin')}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                lookupMethod === 'vin'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Decode VIN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLookupMethod('manual')}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                lookupMethod === 'manual'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Manual Entry
+            </button>
           </div>
 
-          {/* Search Results */}
-          {searchResults.length > 0 && (
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-4">
-                Found {searchResults.length} vehicle{searchResults.length !== 1 ? 's' : ''}
-              </h3>
-              <div className="space-y-4">
-                {searchResults.map(vehicle => {
-                  const serviceStatus = getServiceStatus(vehicle.lastService);
-                  
-                  return (
-                    <div 
-                      key={vehicle.id} 
-                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                        selectedVehicle?.id === vehicle.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                      onClick={() => handleVehicleSelect(vehicle)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-4">
-                          <Car className="w-8 h-8 text-blue-600 mt-1" />
-                          <div>
-                            <h4 className="font-semibold text-gray-900">
-                              {vehicle.year} {vehicle.make} {vehicle.model}
-                            </h4>
-                            <div className="text-sm text-gray-600 space-y-1">
-                              <div>Color: {vehicle.color} • License: {vehicle.license_plate}</div>
-                              <div>Mileage: {vehicle.mileage.toLocaleString()} mi</div>
-                              <div className="font-mono text-xs">VIN: {vehicle.vin}</div>
-                            </div>
-                            
-                            {/* Customer Info */}
-                            <div className="mt-3 p-3 bg-gray-100 rounded-lg">
-                              <div className="flex items-center mb-2">
-                                <User className="w-4 h-4 text-gray-600 mr-2" />
-                                <span className="font-medium text-gray-900">{vehicle.customer.name}</span>
-                              </div>
-                              <div className="text-sm text-gray-600 space-y-1">
-                                <div className="flex items-center">
-                                  <span className="w-12">Email:</span>
-                                  <a href={`mailto:${vehicle.customer.email}`} className="text-blue-600 hover:text-blue-800">
-                                    {vehicle.customer.email}
-                                  </a>
-                                </div>
-                                <div className="flex items-center">
-                                  <span className="w-12">Phone:</span>
-                                  <a href={`tel:${vehicle.customer.phone}`} className="text-blue-600 hover:text-blue-800">
-                                    {vehicle.customer.phone}
-                                  </a>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="text-right">
-                          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            serviceStatus.status === 'overdue' ? 'bg-red-100 text-red-600' :
-                            serviceStatus.status === 'due' ? 'bg-orange-100 text-orange-600' :
-                            'bg-green-100 text-green-600'
-                          }`}>
-                            {serviceStatus.text}
-                          </div>
-                          <div className="text-sm text-gray-600 mt-2">
-                            Last Service: {new Date(vehicle.lastService).toLocaleDateString()}
-                          </div>
-                          <div className="text-sm font-medium text-gray-900 mt-1">
-                            ${vehicle.totalSpent.toLocaleString()} total
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Service History Preview */}
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <h5 className="font-medium text-gray-900 mb-2">Recent Services</h5>
-                        <div className="space-y-1">
-                          {vehicle.serviceHistory.slice(0, 2).map((service: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between text-sm">
-                              <span className="text-gray-700">{service.service}</span>
-                              <div className="text-right">
-                                <span className="text-gray-900 font-medium">${service.amount}</span>
-                                <span className="text-gray-500 ml-2">{new Date(service.date).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {searchTerm && searchResults.length === 0 && !searching && (
-            <div className="text-center py-8 text-gray-500">
-              <Car className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Found</h3>
-              <p>No vehicles match your search criteria.</p>
-              <button 
-                onClick={() => alert('Add Vehicle functionality - would open vehicle registration form')}
-                className="mt-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center mx-auto"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add New Vehicle
-              </button>
-            </div>
-          )}
-
-          {/* Selected Vehicle Actions */}
-          {selectedVehicle && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Quick Actions</h3>
-              <div className="grid md:grid-cols-3 gap-4">
-                <button 
-                  onClick={() => alert(`Opening full profile for ${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg text-center transition-colors"
-                >
-                  <Eye className="w-6 h-6 mx-auto mb-2" />
-                  <div className="font-medium">View Full Profile</div>
-                  <div className="text-sm opacity-90">Complete vehicle details</div>
-                </button>
-                <button 
-                  onClick={() => alert(`Creating work order for ${selectedVehicle.customer.name}'s ${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`)}
-                  className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg text-center transition-colors"
-                >
-                  <Plus className="w-6 h-6 mx-auto mb-2" />
-                  <div className="font-medium">Create Work Order</div>
-                  <div className="text-sm opacity-90">Start new service</div>
-                </button>
-                <button 
-                  onClick={() => alert(`Scheduling appointment for ${selectedVehicle.customer.name}`)}
-                  className="bg-orange-600 hover:bg-orange-700 text-white p-4 rounded-lg text-center transition-colors"
-                >
-                  <Calendar className="w-6 h-6 mx-auto mb-2" />
-                  <div className="font-medium">Schedule Service</div>
-                  <div className="text-sm opacity-90">Book appointment</div>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {!searchTerm && (
-            <div className="text-center py-12 text-gray-500">
-              <Search className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Vehicle Database Search</h3>
-              <p>Search for any vehicle in your database using VIN, license plate, vehicle details, or customer information.</p>
-              <div className="mt-6 grid md:grid-cols-2 gap-4 max-w-md mx-auto text-sm">
-                <div className="bg-gray-100 p-3 rounded-lg">
-                  <strong>Search Examples:</strong>
-                  <ul className="mt-2 space-y-1 text-left">
-                    <li>• VIN: 1HGBH41JXMN109186</li>
-                    <li>• License: ABC-1234</li>
-                    <li>• Vehicle: 2022 Toyota Camry</li>
-                    <li>• Customer: John Smith</li>
-                  </ul>
+          {/* VIN Decode Section */}
+          {lookupMethod === 'vin' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Vehicle Identification Number (VIN)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={vin}
+                    onChange={(e) => setVin(e.target.value.toUpperCase())}
+                    placeholder="Enter 17-character VIN"
+                    maxLength={17}
+                    className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleDecodeVin}
+                    disabled={vinDecoding || vin.length < 17}
+                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {vinDecoding ? (
+                      <>
+                        <Loader className="w-4 h-4 mr-2 animate-spin" />
+                        Decoding...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4 mr-2" />
+                        Decode
+                      </>
+                    )}
+                  </button>
                 </div>
-                <div className="bg-blue-100 p-3 rounded-lg">
-                  <strong>Quick Access:</strong>
-                  <ul className="mt-2 space-y-1 text-left">
-                    <li>• View service history</li>
-                    <li>• Create work orders</li>
-                    <li>• Schedule appointments</li>
-                    <li>• Update vehicle info</li>
-                  </ul>
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter the VIN and click Decode to auto-fill vehicle details
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Manual Entry Section */}
+          {lookupMethod === 'manual' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Year *</label>
+                <select
+                  required
+                  value={formData.year}
+                  onChange={(e) => setFormData({ ...formData, year: e.target.value, make: '', model: '' })}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">Select year</option>
+                  {years.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+
+              {formData.year && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Make *</label>
+                  <select
+                    required
+                    value={formData.make}
+                    onChange={(e) => setFormData({ ...formData, make: e.target.value, model: '' })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select make</option>
+                    {makes.map(make => (
+                      <option key={make.Make_ID} value={make.Make_Name}>
+                        {make.Make_Name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {formData.year && formData.make && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Model *</label>
+                  <select
+                    required
+                    value={formData.model}
+                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select model</option>
+                    {models.map(model => (
+                      <option key={model.Model_ID} value={model.Model_Name}>
+                        {model.Model_Name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Common Fields (shown after VIN decode or manual selection) */}
+          {((lookupMethod === 'vin' && formData.year && formData.make && formData.model) ||
+            (lookupMethod === 'manual' && formData.year && formData.make && formData.model)) && (
+            <>
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="font-semibold text-gray-900 mb-4">Additional Details</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">VIN</label>
+                    <input
+                      type="text"
+                      value={formData.vin}
+                      onChange={(e) => setFormData({ ...formData, vin: e.target.value.toUpperCase() })}
+                      placeholder="Optional"
+                      maxLength={17}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                    <input
+                      type="text"
+                      value={formData.color}
+                      onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                      placeholder="e.g., Black, White, Silver"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Mileage</label>
+                    <input
+                      type="number"
+                      value={formData.mileage}
+                      onChange={(e) => setFormData({ ...formData, mileage: e.target.value })}
+                      placeholder="Current mileage"
+                      min="0"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">License Plate</label>
+                    <input
+                      type="text"
+                      value={formData.license_plate}
+                      onChange={(e) => setFormData({ ...formData, license_plate: e.target.value.toUpperCase() })}
+                      placeholder="e.g., ABC1234"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {/* Vehicle Summary */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-semibold text-green-900 mb-2">Vehicle Summary</h4>
+                <p className="text-green-800">
+                  {formData.year} {formData.make} {formData.model}
+                  {formData.color && ` - ${formData.color}`}
+                  {formData.license_plate && ` (${formData.license_plate})`}
+                </p>
+              </div>
+            </>
           )}
-        </div>
+
+          {/* Actions */}
+          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !formData.year || !formData.make || !formData.model}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Adding Vehicle...
+                </>
+              ) : (
+                'Add Vehicle'
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
