@@ -12,31 +12,10 @@ console.log('Supabase Configuration Check:', {
   keyPreview: supabaseAnonKey ? `${supabaseAnonKey.substring(0, 10)}...` : 'Missing'
 });
 
-const debugFetch: typeof fetch = async (input, init) => {
-  const url = typeof input === 'string'
-    ? input
-    : input instanceof URL
-      ? input.toString()
-      : input.url;
-  const method = init?.method ?? 'GET';
-  console.log('[Supabase fetch] request', method, url);
-  try {
-    const res = await fetch(input, init);
-    console.log('[Supabase fetch] response', res.status, url);
-    return res;
-  } catch (error) {
-    console.warn('[Supabase fetch] error', url, error);
-    throw error;
-  }
-};
-
 export const supabase = createClient<Database>(
   supabaseUrl!, 
   supabaseAnonKey!,
   {
-    global: {
-      fetch: debugFetch,
-    },
     auth: {
       autoRefreshToken: true,
       persistSession: true,
