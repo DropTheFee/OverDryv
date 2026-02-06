@@ -8,11 +8,11 @@
 DO $$
 DECLARE
   demo_org_id UUID;
-  customer_ids UUID[];
-  vehicle_ids UUID[];
-  technician_ids UUID[];
-  work_order_ids UUID[];
-  estimate_ids UUID[];
+  customer_ids UUID[] := ARRAY[]::UUID[];
+  vehicle_ids UUID[] := ARRAY[]::UUID[];
+  technician_ids UUID[] := ARRAY[]::UUID[];
+  work_order_ids UUID[] := ARRAY[]::UUID[];
+  estimate_ids UUID[] := ARRAY[]::UUID[];
   temp_customer_id UUID;
   temp_vehicle_id UUID;
   temp_technician_id UUID;
@@ -34,13 +34,6 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'Using demo organization ID: %', demo_org_id;
-
-  -- Initialize arrays
-  customer_ids := ARRAY[]::UUID[];
-  vehicle_ids := ARRAY[]::UUID[];
-  technician_ids := ARRAY[]::UUID[];
-  work_order_ids := ARRAY[]::UUID[];
-  estimate_ids := ARRAY[]::UUID[];
 
   -- =====================================================
   -- INSERT TECHNICIANS (4 technicians)
@@ -70,7 +63,12 @@ BEGIN
         WHEN 3 THEN 'Brown'
         ELSE 'Davis'
       END,
-      '555-010' || i,
+      CASE i
+        WHEN 1 THEN 5550101
+        WHEN 2 THEN 5550102
+        WHEN 3 THEN 5550103
+        ELSE 5550104
+      END,
       'technician',
       demo_org_id,
       NOW() - INTERVAL '180 days'
@@ -124,7 +122,7 @@ BEGIN
         WHEN 13 THEN 'Martinez' WHEN 14 THEN 'Hernandez' WHEN 15 THEN 'Lopez'
         WHEN 16 THEN 'Gonzalez' WHEN 17 THEN 'Wilson' ELSE 'Moore'
       END,
-      '555-10' || LPAD(i::TEXT, 2, '0'),
+      5551000 + i,
       'customer',
       demo_org_id,
       NOW() - INTERVAL '240 days' + (i * INTERVAL '10 days')

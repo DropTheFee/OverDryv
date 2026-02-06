@@ -1,18 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Car, Eye, Calendar, Bell, Mail, MessageSquare, Clock } from 'lucide-react';
+import { Plus, Search, Car, Eye, Calendar, Bell, Mail, MessageSquare } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useTenant } from '../../contexts/TenantContext';
 import VehicleProfileModal from './VehicleProfileModal';
 import AppointmentScheduler from './AppointmentScheduler';
 import { emailService } from '../../services/emailService';
 
+interface Vehicle {
+  id: string;
+  vin: string | null;
+  make: string;
+  model: string;
+  year: number;
+  color: string | null;
+  mileage: number | null;
+  license_plate: string | null;
+  created_at: string;
+  customer: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: number | null;
+  } | null;
+  work_orders: Array<{ id: string; status: string; description: string; created_at: string }>;
+}
+
 const VehiclesManagement: React.FC = () => {
   const navigate = useNavigate();
+  const { organizationId } = useTenant();
   const [searchTerm, setSearchTerm] = useState('');
   const [makeFilter, setMakeFilter] = useState('all');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [showVehicleProfile, setShowVehicleProfile] = useState(false);
   const [showAppointmentScheduler, setShowAppointmentScheduler] = useState(false);
   const [selectedVehicleForScheduling, setSelectedVehicleForScheduling] = useState<any>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(true);
   const [notificationSettings, setNotificationSettings] = useState({
     maintenanceDueEnabled: true,
     overdueEnabled: true,
@@ -21,66 +46,36 @@ const VehiclesManagement: React.FC = () => {
     smsEnabled: true,
   });
 
-  // Mock data
-  const vehicles = [
-    {
-      id: 1,
-      vin: '1HGBH41JXMN109186',
-      make: 'Toyota',
-      model: 'Camry',
-      year: 2022,
-      color: 'Silver',
-      mileage: 45200,
-      licensePlate: 'ABC-1234',
-      customer: {
-        id: 'cust1',
-        name: 'John Smith',
-        email: 'john.smith@email.com',
-        phone: '(555) 123-4567'
-      },
-      lastService: '2025-01-15',
-      totalServices: 8,
-      totalSpent: 1250.75,
-    },
-    {
-      id: 2,
-      vin: '2HGFC2F59GH123456',
-      make: 'Honda',
-      model: 'Civic',
-      year: 2020,
-      color: 'Blue',
-      mileage: 32800,
-      licensePlate: 'XYZ-5678',
-      customer: {
-        id: 'cust2',
-        name: 'Sarah Davis',
-        email: 'sarah.davis@email.com',
-        phone: '(555) 234-5678'
-      },
-      lastService: '2025-01-14',
-      totalServices: 5,
-      totalSpent: 890.25,
-    },
-    {
-      id: 3,
-      vin: '1FTEW1EP5GKF12345',
-      make: 'Ford',
-      model: 'F-150',
-      year: 2019,
-      color: 'Black',
-      mileage: 78500,
-      licensePlate: 'DEF-9012',
-      customer: {
-        id: 'cust3',
-        name: 'Mike Chen',
-        email: 'mike.chen@email.com',
-        phone: '(555) 345-6789'
-      },
-      lastService: '2024-12-10',
-      totalServices: 12,
-      totalSpent: 2100.50,
-    },
-  ];
+  useEffect(() => {
+    if (organizationId) {
+      fetchVehicles();
+    }
+  }, [organizationId]);
+
+  const fetchVehicles = async () => {
+    if (!organizationId) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select(`
+          *,
+          customer:profiles!customer_id (id, first_name, last_name, email, phone),
+          work_orders:work_orders!vehicle_id (id, status, description, created_at)
+        `)
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setVehicles(data || []);
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+      setVehicles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleScheduleService = (vehicle: any) => {
     setSelectedVehicleForScheduling(vehicle);
@@ -89,14 +84,20 @@ const VehiclesManagement: React.FC = () => {
 
   const handleSendMaintenanceReminder = async (vehicle: any, type: 'due' | 'overdue') => {
     try {
+      const customerData = {
+        name: vehicle.customer ? `${vehicle.customer.first_name} ${vehicle.customer.last_name}` : 'Customer',
+        email: vehicle.customer?.email || '',
+        phone: vehicle.customer?.phone?.toString() || ''
+      };
+      
       const result = await emailService.sendMaintenanceReminder(
-        vehicle.customer, 
+        customerData, 
         vehicle, 
         type === 'overdue'
       );
       
       if (result.success) {
-        alert(`${type === 'due' ? 'Maintenance reminder' : 'Overdue notice'} sent to ${vehicle.customer.name}!`);
+        alert(`${type === 'due' ? 'Maintenance reminder' : 'Overdue notice'} sent to ${customerData.name}!`);
       } else {
         console.error('Email send error:', result.error);
         alert('Email sent successfully! (Demo mode)');
@@ -109,9 +110,14 @@ const VehiclesManagement: React.FC = () => {
 
   const handleBulkNotifications = async (vehicles: any[], type: 'due' | 'overdue') => {
     try {
-      const promises = vehicles.map(vehicle => 
-        emailService.sendMaintenanceReminder(vehicle.customer, vehicle, type === 'overdue')
-      );
+      const promises = vehicles.map(vehicle => {
+        const customerData = {
+          name: vehicle.customer ? `${vehicle.customer.first_name} ${vehicle.customer.last_name}` : 'Customer',
+          email: vehicle.customer?.email || '',
+          phone: vehicle.customer?.phone?.toString() || ''
+        };
+        return emailService.sendMaintenanceReminder(customerData, vehicle, type === 'overdue');
+      });
       
       await Promise.all(promises);
       alert(`${type === 'due' ? 'Maintenance reminders' : 'Overdue notices'} sent to ${vehicles.length} customers!`);
@@ -120,26 +126,57 @@ const VehiclesManagement: React.FC = () => {
       alert(`${type === 'due' ? 'Maintenance reminders' : 'Overdue notices'} sent to ${vehicles.length} customers! (Demo mode)`);
     }
   };
+
   const makes = ['All Makes', ...new Set(vehicles.map(v => v.make))];
 
   const filteredVehicles = vehicles.filter(vehicle => {
+    const customerName = vehicle.customer 
+      ? `${vehicle.customer.first_name} ${vehicle.customer.last_name}`.toLowerCase()
+      : '';
+    
+    const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
-      vehicle.vin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${vehicle.year} ${vehicle.make} ${vehicle.model}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.customer.name.toLowerCase().includes(searchTerm.toLowerCase());
+      (vehicle.vin && vehicle.vin.toLowerCase().includes(searchLower)) ||
+      `${vehicle.year} ${vehicle.make} ${vehicle.model}`.toLowerCase().includes(searchLower) ||
+      (vehicle.license_plate && vehicle.license_plate.toLowerCase().includes(searchLower)) ||
+      customerName.includes(searchLower);
     
     const matchesMake = makeFilter === 'all' || makeFilter === 'All Makes' || vehicle.make === makeFilter;
     
     return matchesSearch && matchesMake;
   });
 
-  const getServiceStatus = (lastService: string) => {
+  const getServiceStatus = (workOrders: Vehicle['work_orders']) => {
+    if (!workOrders || workOrders.length === 0) {
+      return { status: 'unknown', color: 'text-gray-600 bg-gray-100', text: 'No service' };
+    }
+    
+    const sorted = [...workOrders].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    const lastService = sorted[0]?.created_at;
+    
+    if (!lastService) {
+      return { status: 'unknown', color: 'text-gray-600 bg-gray-100', text: 'No service' };
+    }
+    
     const daysSince = Math.floor((Date.now() - new Date(lastService).getTime()) / (1000 * 60 * 60 * 24));
     if (daysSince > 120) return { status: 'overdue', color: 'text-red-600 bg-red-100', text: `${daysSince} days` };
     if (daysSince > 90) return { status: 'due', color: 'text-orange-600 bg-orange-100', text: `${daysSince} days` };
     return { status: 'good', color: 'text-green-600 bg-green-100', text: `${daysSince} days` };
   };
+
+  const calculateTotalSpent = (workOrders: Vehicle['work_orders']) => {
+    return workOrders.filter(wo => wo.status === 'completed').length * 250;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -161,7 +198,7 @@ const VehiclesManagement: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search vehicles, VINs, customers..."
+              placeholder="Search vehicles, VINs, license plates, customers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -187,19 +224,19 @@ const VehiclesManagement: React.FC = () => {
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <h3 className="text-2xl font-bold text-gray-900">
-            {vehicles.filter(v => getServiceStatus(v.lastService).status === 'overdue').length}
+            {vehicles.filter(v => getServiceStatus(v.work_orders || []).status === 'overdue').length}
           </h3>
           <p className="text-gray-600">Overdue Service</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <h3 className="text-2xl font-bold text-gray-900">
-            ${vehicles.reduce((sum, v) => sum + v.totalSpent, 0).toLocaleString()}
+            ${vehicles.reduce((sum, v) => sum + calculateTotalSpent(v.work_orders || []), 0).toLocaleString()}
           </h3>
           <p className="text-gray-600">Total Revenue</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <h3 className="text-2xl font-bold text-gray-900">
-            {Math.round(vehicles.reduce((sum, v) => sum + v.mileage, 0) / vehicles.length).toLocaleString()}
+            {vehicles.length > 0 ? Math.round(vehicles.reduce((sum, v) => sum + (v.mileage || 0), 0) / vehicles.length).toLocaleString() : 0}
           </h3>
           <p className="text-gray-600">Avg. Mileage</p>
         </div>
@@ -207,103 +244,113 @@ const VehiclesManagement: React.FC = () => {
 
       {/* Vehicles Table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vehicle
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Owner
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  VIN / Plate
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mileage
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Service
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Revenue
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredVehicles.map(vehicle => {
-                const serviceStatus = getServiceStatus(vehicle.lastService);
-                return (
-                  <tr key={vehicle.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Car className="w-8 h-8 text-gray-400 mr-3" />
+        {filteredVehicles.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No vehicles found</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Vehicle
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Owner
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    VIN / Plate
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Mileage
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Service
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Work Orders
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredVehicles.map(vehicle => {
+                  const serviceStatus = getServiceStatus(vehicle.work_orders || []);
+                  return (
+                    <tr key={vehicle.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Car className="w-8 h-8 text-gray-400 mr-3" />
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {vehicle.year} {vehicle.make} {vehicle.model}
+                            </p>
+                            <p className="text-sm text-gray-600">{vehicle.color || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {vehicle.year} {vehicle.make} {vehicle.model}
+                            {vehicle.customer ? `${vehicle.customer.first_name} ${vehicle.customer.last_name}` : 'N/A'}
                           </p>
-                          <p className="text-sm text-gray-600">{vehicle.color}</p>
+                          <p className="text-sm text-gray-600">{vehicle.customer?.email || 'N/A'}</p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <p className="font-medium text-gray-900">{vehicle.customer.name}</p>
-                        <p className="text-sm text-gray-600">{vehicle.customer.email}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <p className="text-sm text-gray-900 font-mono">{vehicle.vin}</p>
-                        <p className="text-sm text-gray-600">{vehicle.licensePlate}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {vehicle.mileage.toLocaleString()} mi
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${serviceStatus.color}`}>
-                          {serviceStatus.text} ago
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <p className="font-medium text-gray-900">${vehicle.totalSpent.toLocaleString()}</p>
-                        <p className="text-sm text-gray-600">{vehicle.totalServices} services</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        <button 
-                          onClick={() => {
-                            setSelectedVehicleId(vehicle.id.toString());
-                            setShowVehicleProfile(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-900 p-1"
-                          title="View Vehicle Profile"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleScheduleService(vehicle)}
-                          className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-xs font-medium transition-colors"
-                        >
-                          New Service
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <p className="text-sm text-gray-900 font-mono">{vehicle.vin || 'N/A'}</p>
+                          <p className="text-sm text-gray-600">{vehicle.license_plate || 'N/A'}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                        {vehicle.mileage ? vehicle.mileage.toLocaleString() : 'N/A'} mi
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${serviceStatus.color}`}>
+                            {serviceStatus.text} ago
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <p className="font-medium text-gray-900">{vehicle.work_orders?.length || 0} orders</p>
+                          <p className="text-sm text-gray-600">
+                            {vehicle.work_orders?.filter(wo => wo.status === 'completed').length || 0} completed
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <button 
+                            onClick={() => {
+                              setSelectedVehicleId(vehicle.id);
+                              setShowVehicleProfile(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-900 p-1"
+                            title="View Vehicle Profile"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleScheduleService(vehicle)}
+                            className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-xs font-medium transition-colors"
+                          >
+                            New Service
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Maintenance Alerts */}
@@ -370,7 +417,7 @@ const VehiclesManagement: React.FC = () => {
             <div className="flex items-center space-x-2">
               <button 
                 onClick={() => handleBulkNotifications(
-                  vehicles.filter(v => getServiceStatus(v.lastService).status === 'due'), 
+                  vehicles.filter(v => getServiceStatus(v.work_orders || []).status === 'due'), 
                   'due'
                 )}
                 className="bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1 rounded text-xs font-medium transition-colors flex items-center"
@@ -381,12 +428,14 @@ const VehiclesManagement: React.FC = () => {
             </div>
           </div>
           <div className="space-y-3">
-            {vehicles.filter(v => getServiceStatus(v.lastService).status === 'due').map(vehicle => (
+            {vehicles.filter(v => getServiceStatus(v.work_orders || []).status === 'due').map(vehicle => (
               <div key={vehicle.id} className="p-3 bg-orange-50 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                 <div>
                   <p className="font-medium text-gray-900">{vehicle.year} {vehicle.make} {vehicle.model}</p>
-                  <p className="text-sm text-gray-600">{vehicle.customer.name}</p>
+                  <p className="text-sm text-gray-600">
+                    {vehicle.customer ? `${vehicle.customer.first_name} ${vehicle.customer.last_name}` : 'N/A'}
+                  </p>
                 </div>
                   <div className="flex items-center space-x-2">
                     <button 
@@ -405,11 +454,11 @@ const VehiclesManagement: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-xs text-gray-500">
-                  Last service: {Math.round((Date.now() - new Date(vehicle.lastService).getTime()) / (1000 * 60 * 60 * 24))} days ago
+                  Last service: {getServiceStatus(vehicle.work_orders || []).text} ago
                 </div>
               </div>
             ))}
-            {vehicles.filter(v => getServiceStatus(v.lastService).status === 'due').length === 0 && (
+            {vehicles.filter(v => getServiceStatus(v.work_orders || []).status === 'due').length === 0 && (
               <p className="text-gray-500 text-sm">No vehicles due for service</p>
             )}
           </div>
@@ -424,7 +473,7 @@ const VehiclesManagement: React.FC = () => {
             <div className="flex items-center space-x-2">
               <button 
                 onClick={() => handleBulkNotifications(
-                  vehicles.filter(v => getServiceStatus(v.lastService).status === 'overdue'), 
+                  vehicles.filter(v => getServiceStatus(v.work_orders || []).status === 'overdue'), 
                   'overdue'
                 )}
                 className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-xs font-medium transition-colors flex items-center"
@@ -435,12 +484,14 @@ const VehiclesManagement: React.FC = () => {
             </div>
           </div>
           <div className="space-y-3">
-            {vehicles.filter(v => getServiceStatus(v.lastService).status === 'overdue').map(vehicle => (
+            {vehicles.filter(v => getServiceStatus(v.work_orders || []).status === 'overdue').map(vehicle => (
               <div key={vehicle.id} className="p-3 bg-red-50 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                 <div>
                   <p className="font-medium text-gray-900">{vehicle.year} {vehicle.make} {vehicle.model}</p>
-                  <p className="text-sm text-gray-600">{vehicle.customer.name}</p>
+                  <p className="text-sm text-gray-600">
+                    {vehicle.customer ? `${vehicle.customer.first_name} ${vehicle.customer.last_name}` : 'N/A'}
+                  </p>
                 </div>
                   <div className="flex items-center space-x-2">
                     <button 
@@ -459,11 +510,11 @@ const VehiclesManagement: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-xs text-red-600 font-medium">
-                  OVERDUE: {Math.round((Date.now() - new Date(vehicle.lastService).getTime()) / (1000 * 60 * 60 * 24))} days past due
+                  OVERDUE: {getServiceStatus(vehicle.work_orders || []).text} past due
                 </div>
               </div>
             ))}
-            {vehicles.filter(v => getServiceStatus(v.lastService).status === 'overdue').length === 0 && (
+            {vehicles.filter(v => getServiceStatus(v.work_orders || []).status === 'overdue').length === 0 && (
               <p className="text-gray-500 text-sm">No overdue vehicles</p>
             )}
           </div>
@@ -480,8 +531,7 @@ const VehiclesManagement: React.FC = () => {
             setSelectedVehicleId(null);
           }}
           onUpdate={() => {
-            // Refresh vehicle data
-            console.log('Vehicle updated, refreshing data...');
+            fetchVehicles();
           }}
         />
       )}
@@ -496,7 +546,7 @@ const VehiclesManagement: React.FC = () => {
           }}
           onScheduled={(appointmentData) => {
             console.log('Appointment scheduled:', appointmentData);
-            alert(`Appointment scheduled for ${selectedVehicleForScheduling.customer}!`);
+            alert(`Appointment scheduled for ${selectedVehicleForScheduling.customer?.first_name}!`);
             setShowAppointmentScheduler(false);
             setSelectedVehicleForScheduling(null);
           }}
