@@ -1,5 +1,5 @@
 {
-  "timeline_index": 303,
+  "timeline_index": 308,
   "planner": {},
   "gallery_last_file": {},
   "timeline_status": {
@@ -305,7 +305,12 @@
     "300": 1,
     "301": 1,
     "302": 1,
-    "303": 1
+    "303": 1,
+    "304": 1,
+    "305": 1,
+    "306": 1,
+    "307": 1,
+    "308": 0
   },
   "preview_servers": {},
   "preview_server": null,
